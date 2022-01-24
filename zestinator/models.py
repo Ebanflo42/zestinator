@@ -12,7 +12,6 @@ def gru(out_dim, W_init=glorot_normal(), b_init=normal()):
 
     def init_fun(rng, input_shape):
         """ Initialize the GRU layer for stax """
-        hidden = b_init(rng, (input_shape[0], out_dim))
 
         k1, k2, k3 = random.split(rng, num=3)
         update_W, update_U, update_b = (
@@ -36,10 +35,9 @@ def gru(out_dim, W_init=glorot_normal(), b_init=normal()):
         # Input dim 1 represents the time dimension (before scan moveaxis)
         output_shape = (input_shape[0], input_shape[1], out_dim)
         return (output_shape,
-                (hidden,
-                 (update_W, update_U, update_b),
-                    (reset_W, reset_U, reset_b),
-                    (out_W, out_U, out_b),),)
+                (update_W, update_U, update_b),
+                (reset_W, reset_U, reset_b),
+                (out_W, out_U, out_b))
 
     def apply_fun(params, inputs, **kwargs):
         """ Loop over the time steps of the input sequence """
@@ -47,7 +45,7 @@ def gru(out_dim, W_init=glorot_normal(), b_init=normal()):
 
         def dynamic_step(params, hidden, inp):
             """ Perform single step update of the network """
-            _, (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
+            (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
                 out_W, out_U, out_b) = params
 
             update_gate = sigmoid(jnp.dot(inp, update_W) +
@@ -77,7 +75,6 @@ def recursive_gru(out_dim, n_iters, W_init=glorot_normal(), b_init=normal()):
 
     def init_fun(rng, input_shape):
         """ Initialize the GRU layer for stax """
-        hidden = b_init(rng, (input_shape[0], out_dim))
 
         k1, k2, k3 = random.split(rng, num=3)
         update_W, update_U, update_b = (
@@ -101,10 +98,9 @@ def recursive_gru(out_dim, n_iters, W_init=glorot_normal(), b_init=normal()):
         # Input dim 1 represents the time dimension (before scan moveaxis)
         output_shape = (input_shape[0], n_iters, out_dim)
         return (output_shape,
-                (hidden,
-                 (update_W, update_U, update_b),
-                    (reset_W, reset_U, reset_b),
-                    (out_W, out_U, out_b),),)
+                (update_W, update_U, update_b),
+                (reset_W, reset_U, reset_b),
+                (out_W, out_U, out_b))
 
     def apply_fun(params, input, **kwargs):
         """ Loop over the time steps of the input sequence """

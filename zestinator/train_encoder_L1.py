@@ -3,14 +3,21 @@ import string
 import random
 import numpy as np
 import numpy.random as rd
+
 import jax.numpy as jnp
 import jax.random as jrd
 
 from jax.example_libraries.optimizers import rmsprop
+from jax import vmap, pmap, grad
+
 from simmanager import SimManager
-from os.path import join as opj
+from functools import partial
 from datetime import datetime
 from absl import app, flags
+from os.path import join as opj
+
+from models import gru
+from utils import encoder_loss
 
 
 FLAGS = flags.FLAGS
@@ -24,6 +31,12 @@ flags.DEFINE_string('results_path', 'experiments',
                     'Name of the directory to save all results within.')
 flags.DEFINE_integer(
     'random_seed', -1, 'If not -1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
+
+# preprocessing
+flags.DEFINE_integer('sample_rate', 22050, 'Sample rate for audio files.')
+flags.DEFINE_integer('n_mel_features', 256, 'Number of channels in mel spectrogram.')
+flags.DEFINE_integer('stft_win', 1000, 'Window length for short-time Fourier transform.')
+flags.DEFINE_integer('stft_hop', 250, 'Window hop for short-time Fourier transform.')
 
 # training
 flags.DEFINE_string('datapath', '', 'Path to a metric fuck ton of mp3s.')
@@ -41,70 +54,27 @@ flags.DEFINE_string(
     'restore_from', '', 'If non-empty, restore the previous model from this directory and train it using the new flags.')
 
 
-def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
+def train_loop(sm, FLAGS, rng, data_iter):
 
     # construct the optimizer
     init_optimizer, update_optimizer, optimizer_params = rmsprop(FLAGS.lr)
+
+    init_l1, apply_l1 = gru(512)
+    x = next(data_iter)
+    l1_shape, l1_params = init_l1(rng, x.shape)
+    
 
     # begin training loop
     for i in range(FLAGS.n_steps):
 
         # get next training sample
-        x, y, mask = next(train_iter)
+        x = next(data_iter)
 
         # forward pass
-        output, hidden = model(x)
-
-        # binary cross entropy
-        bce_loss = loss_fcn(output, y, mask)
-
-        # weight regularization
-        l2_reg = torch.tensor(0, dtype=torch.float32, device=device)
-        for param in model.parameters():
-            l2_reg += FLAGS.reg_coeff*torch.norm(param)
+        y = apply_l1(l1_params, x)
 
         # backward pass and optimization step
-        loss = bce_loss + l2_reg
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # learning rate decay
-        scheduler.step()
-
-        # compute accuracy
-        acc = acc_fcn(output, y, mask)
-
-        if i > 0 and i % FLAGS.validate_every == 0:
-
-            timestamp = datetime.now().strftime('%H:%M:%S')
-            print(
-                f'{timestamp} Validating {sm.sim_name} at iteration {i}.\n  Training loss: {train_loss[-1]:.3}\n  Training accuracy: {100*train_acc[-1]:.3}%\n  L2 regularization: {train_reg[-1]:.3}')
-
-            # get next validation sample
-            x, y, mask = next(valid_iter)
-            x, y, mask = x.to(device), y.to(device), mask.to(device)
-
-            # forward pass
-            output, hidden = model(x)
-
-            # binary cross entropy
-            bce_loss = loss_fcn(output, y, mask)
-
-            # compute accuracy
-            acc = acc_fcn(output, y, mask)
-
-            # append metrics
-            valid_loss.append(bce_loss.cpu().item())
-            valid_acc.append(acc.cpu().item())
-
-            print(
-                f'  Validation loss: {valid_loss[-1]:.3}\n  Validation accuracy: {100*valid_acc[-1]:.3}%\n')
-
-            if FLAGS.plot:
-                plot_note_comparison(sm, output, y, i)
-                if model.architecture in ['TANH', 'GRU']:
-                    plot_phase_portrait(sm, model, i)
+        loss = encoder_loss(x, y)
 
         if i > 0 and i % FLAGS.save_every == 0:
 
@@ -152,8 +122,6 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
         f'  Testing loss: {final_test_loss:.3}\n  Testing accuracy: {100*final_test_acc:.3}%')
 
     print(f'Final save of.')
-    np.save(opj(sm.paths.results_path, 'testing_loss'), final_test_loss)
-    np.save(opj(sm.paths.results_path, 'testing_accuracy'), final_test_acc)
     torch.save(model.state_dict(), opj(
         sm.paths.results_path, 'model_checkpoint.pt'))
     date = datetime.now().strftime('%d-%m-%Y')
@@ -226,9 +194,9 @@ def main(_argv):
                              use_grad_clip=FLAGS.use_grad_clip, grad_clip=FLAGS.grad_clip)
             initialize(model, FLAGS)
 
-        train_iter, valid_iter, test_iter = get_datasets(FLAGS)
+        data_iter, valid_iter, test_iter = get_datasets(FLAGS)
 
-        train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter)
+        train_loop(sm, FLAGS, model, data_iter, valid_iter, test_iter)
 
 
 if __name__ == '__main__':
