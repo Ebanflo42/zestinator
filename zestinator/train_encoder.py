@@ -1,4 +1,15 @@
+import json
+import string
+import random
+import numpy as np
+import numpy.random as rd
+import jax.numpy as jnp
+import jax.random as jrd
+
 from jax.example_libraries.optimizers import rmsprop
+from simmanager import SimManager
+from os.path import join as opj
+from datetime import datetime
 from absl import app, flags
 
 
@@ -9,89 +20,37 @@ flags.DEFINE_bool(
     'use_gpus', 0, 'How many GPUs we should try to use.')
 flags.DEFINE_string(
     'model_name', '', 'If non-empty works as a special name for this model.')
-flags.DEFINE_string('results_path', 'experizments',
+flags.DEFINE_string('results_path', 'experiments',
                     'Name of the directory to save all results within.')
 flags.DEFINE_integer(
     'random_seed', -1, 'If not -1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
 
 # training
-flags.DEFINE_enum('dataset', 'JSB_Chorales', [
-    'JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData'], 'Which dataset to train the model on.')
-flags.DEFINE_integer('n_steps', 10000,
+flags.DEFINE_string('datapath', '', 'Path to a metric fuck ton of mp3s.')
+flags.DEFINE_integer('max_steps', 100000,
                      'How many training batches to show the network.')
 flags.DEFINE_integer('batch_size', 50, 'Batch size.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
-flags.DEFINE_integer(
-    'decay_every', 1000, 'Shrink the learning rate after this many training steps.')
-flags.DEFINE_float(
-    'lr_decay', 0.95, 'Shrink the learning rate by this factor.')
-flags.DEFINE_enum('optimizer', 'RMSprop', [
-    'Adam', 'SGD', 'Adagrad', 'RMSprop'], 'Which optimizer to use.')
 flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')
-flags.DEFINE_bool(
-    'use_grad_clip', False, 'Whether or not to clip the backward gradients by their magnitude.')
-flags.DEFINE_float(
-    'grad_clip', 1, 'Maximum magnitude of gradients if gradient clipping is used.')
 flags.DEFINE_integer(
-    'validate_every', 500, 'Validate the model at this many training steps.')
-flags.DEFINE_integer(
-    'save_every', 1000, 'Save the model at this many training steps.')
-flags.DEFINE_boolean('plot', False, 'Plot note comparison and phase portrait every validation step.')
+    'save_every', 500, 'Save the model and print metrics at this many training steps.')
 
 # model
-flags.DEFINE_enum('architecture', 'TANH', [
-    'TANH', 'LSTM', 'GRU'], 'Which recurrent architecture to use.')
-flags.DEFINE_integer(
-    'n_rec', 400, 'How many recurrent neurons to use.')
-flags.DEFINE_enum('initialization', 'default', ['default', 'orthogonal', 'limit_cycle'],
-                  'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU.')
 flags.DEFINE_string(
     'restore_from', '', 'If non-empty, restore the previous model from this directory and train it using the new flags.')
 
 
 def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
 
-    # if we are on cuda we construct the device and run everything on it
-    device = torch.device('cpu')
-    if FLAGS.use_gpu:
-        dev_name = 'cuda:0'
-        device = torch.device(dev_name)
-        model = model.to(device)
-
-    train_loss = []
-    train_reg = []
-    train_acc = []
-
-    valid_loss = []
-    valid_acc = []
-
     # construct the optimizer
-    if FLAGS.optimizer == 'SGD':
-        optimizer = optim.SGD(model.parameters(), lr=FLAGS.lr)
-    elif FLAGS.optimizer == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr)
-    elif FLAGS.optimizer == 'RMSprop':
-        optimizer = optim.RMSprop(model.parameters(), lr=FLAGS.lr)
-    elif FLAGS.optimizer == 'Adagrad':
-        optimizer = optim.Adagrad(model.parameters(), lr=FLAGS.lr)
-    else:
-        raise ValueError(f'Optimizer {FLAGS.optimizier} not recognized.')
-
-    # learning rate decay
-    scheduler = None
-    scheduler = optim.lr_scheduler.LambdaLR(
-        optimizer, lambda epoch: FLAGS.lr_decay**(epoch//FLAGS.decay_every))
-
-    acc_fcn = FrameAccuracy()
-    loss_fcn = MaskedBCE()
+    init_optimizer, update_optimizer, optimizer_params = rmsprop(FLAGS.lr)
 
     # begin training loop
     for i in range(FLAGS.n_steps):
 
         # get next training sample
         x, y, mask = next(train_iter)
-        x, y, mask = x.to(device), y.to(device), mask.to(device)
 
         # forward pass
         output, hidden = model(x)
@@ -115,11 +74,6 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
 
         # compute accuracy
         acc = acc_fcn(output, y, mask)
-
-        # append metrics
-        train_loss.append(bce_loss.cpu().item())
-        train_acc.append(acc.cpu().item())
-        train_reg.append(l2_reg.cpu().item())
 
         if i > 0 and i % FLAGS.validate_every == 0:
 
@@ -219,7 +173,7 @@ def main(_argv):
     date = datetime.now().strftime('%d-%m-%Y')
     timestamp = datetime.now().strftime('%H:%M:%S')
     print(f'\nBeginning to train {sim_name} on {date} at {timestamp}.\n')
-    sm = simmanager.SimManager(
+    sm = SimManager(
         sim_name, FLAGS.results_path, write_protect_dirs=False, tee_stdx_to='output.log')
 
     with sm:
@@ -243,8 +197,8 @@ def main(_argv):
         else:
             random_seed = datetime.now().microsecond
         np.save(opj(sm.paths.data_path, 'random_seed'), random_seed)
-        torch.manual_seed(random_seed)
-        np.random.seed(random_seed)
+        jrd.seed(random_seed)
+        rd.seed(random_seed)
         random.seed(random_seed)
 
         # check for old model to restore from
