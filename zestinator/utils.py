@@ -7,14 +7,14 @@ import numpy.random as rd
 import jax.numpy as jnp
 import jax.random as jrd
 
-from jax.example_libraries.optimizers import rmsprop
-from jax import vmap, pmap, grad
+from jax import vmap, pmap
 
-from simmanager import SimManager
 from functools import partial
-from datetime import datetime
-from absl import app, flags
 from os.path import join as opj
+
+
+def sim_save(sm, name, array):
+    np.save(opj(sm.paths.results_path, name), array)
 
 
 def batch_covariance(x):
@@ -23,6 +23,6 @@ def batch_covariance(x):
 
 
 def encoder_loss(in_batch, out_batch):
-    in_cov = batch_covariance(in_batch )
+    in_cov = batch_covariance(in_batch)
     out_cov = batch_covariance(out_batch)
     return 0.5*jnp.sum((in_cov - out_cov)**2)

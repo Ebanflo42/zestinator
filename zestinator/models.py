@@ -7,6 +7,8 @@ from functools import partial
 from jax import random
 from jax import lax
 
+from utils import sim_save
+
 
 def gru(out_dim, W_init=glorot_normal(), b_init=normal()):
 
@@ -136,3 +138,17 @@ def recursive_gru(out_dim, n_iters, W_init=glorot_normal(), b_init=normal()):
         return states
 
     return init_fun, apply_fun
+
+
+def save_gru(sm, params, layer=0):
+    (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
+        out_W, out_U, out_b) = params
+    sim_save(sm, f'update_W_L{layer}', update_W)
+    sim_save(sm, f'update_U_L{layer}', update_U)
+    sim_save(sm, f'update_b_L{layer}', update_b)
+    sim_save(sm, f'reset_W_L{layer}', reset_W)
+    sim_save(sm, f'reset_U_L{layer}', reset_U)
+    sim_save(sm, f'reset_b_L{layer}', reset_b)
+    sim_save(sm, f'out_W_L{layer}', out_W)
+    sim_save(sm, f'out_U_L{layer}', out_U)
+    sim_save(sm, f'out_b_L{layer}', out_b)

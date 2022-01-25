@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import jax.random as jrd
 
 from jax.example_libraries.optimizers import rmsprop
-from jax import vmap, pmap, grad
+from jax import vmap, pmap, value_and_grad
 
 from simmanager import SimManager
 from functools import partial
@@ -16,15 +16,15 @@ from datetime import datetime
 from absl import app, flags
 from os.path import join as opj
 
-from models import gru
-from utils import encoder_loss
+from models import gru, save_gru
+from utils import encoder_loss, sim_save
 
 
 FLAGS = flags.FLAGS
 
 # system
-flags.DEFINE_bool(
-    'use_gpus', 0, 'How many GPUs we should try to use.')
+flags.DEFINE_integer(
+    'n_gpus', 0, 'How many GPUs we should try to use.')
 flags.DEFINE_string(
     'model_name', '', 'If non-empty works as a special name for this model.')
 flags.DEFINE_string('results_path', 'experiments',
@@ -34,13 +34,15 @@ flags.DEFINE_integer(
 
 # preprocessing
 flags.DEFINE_integer('sample_rate', 22050, 'Sample rate for audio files.')
-flags.DEFINE_integer('n_mel_features', 256, 'Number of channels in mel spectrogram.')
-flags.DEFINE_integer('stft_win', 1000, 'Window length for short-time Fourier transform.')
-flags.DEFINE_integer('stft_hop', 250, 'Window hop for short-time Fourier transform.')
+flags.DEFINE_integer('n_mel_features', 256,
+                     'Number of channels in mel spectrogram.')
+flags.DEFINE_integer(
+    'stft_win', 1000, 'Window length for short-time Fourier transform.')
+flags.DEFINE_integer(
+    'stft_hop', 250, 'Window hop for short-time Fourier transform.')
 
 # training
-flags.DEFINE_string('datapath', '', 'Path to a metric fuck ton of mp3s.')
-flags.DEFINE_integer('max_steps', 100000,
+flags.DEFINE_integer('max_steps', 10000,
                      'How many training batches to show the network.')
 flags.DEFINE_integer('batch_size', 50, 'Batch size.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
@@ -56,13 +58,26 @@ flags.DEFINE_string(
 
 def train_loop(sm, FLAGS, rng, data_iter):
 
-    # construct the optimizer
-    init_optimizer, update_optimizer, optimizer_params = rmsprop(FLAGS.lr)
-
+    # get GRU model and initialize parameters
     init_l1, apply_l1 = gru(512)
     x = next(data_iter)
     l1_shape, l1_params = init_l1(rng, x.shape)
-    
+
+    # construct the optimizer
+    opt_initialize, opt_update, opt_get_params = rmsprop(FLAGS.lr)
+    opt_state = opt_initialize(l1_params)
+
+    # define full forward pass and its derivative
+    def forward_pass(params, inp):
+        y = apply_l1(params, inp)
+        loss = encoder_loss(x, y)
+        return loss, y
+    forward_backward_pass = value_and_grad(forward_pass, has_aux=True)
+
+    # track some metrics
+    loss_log = []
+    input_variance_log = []
+    output_variance_log = []
 
     # begin training loop
     for i in range(FLAGS.n_steps):
@@ -70,60 +85,42 @@ def train_loop(sm, FLAGS, rng, data_iter):
         # get next training sample
         x = next(data_iter)
 
-        # forward pass
-        y = apply_l1(l1_params, x)
+        # forward pass and backward pass
+        (loss, y), grads = forward_backward_pass
 
-        # backward pass and optimization step
-        loss = encoder_loss(x, y)
+        # optimizer step
+        opt_state = opt_update(i, grads, opt_state)
+        l1_params = opt_get_params(opt_state)
+
+        # record metrics
+        loss_log.append(loss.numpy().item())
+        input_variance_log.append(np.std(x.numpy()))
+        output_variance_log.append(np.std(y.numpy()))
 
         if i > 0 and i % FLAGS.save_every == 0:
 
             timestamp = datetime.now().strftime('%H:%M:%S')
             print(f'{timestamp} Saving {sm.sim_name} at iteration {i}.\n')
 
-            np.save(opj(sm.paths.results_path, 'training_loss'), train_loss)
-            np.save(opj(sm.paths.results_path,
-                    'training_accuracy'), train_acc)
-            np.save(opj(sm.paths.results_path,
-                    'training_regularization'), train_reg)
+            sim_save(sm, 'loss_log', loss_log)
+            sim_save(sm, 'input_variance_log', input_variance_log)
+            sim_save(sm, 'output_variance_log', output_variance_log)
 
-            np.save(opj(sm.paths.results_path, 'validation_loss'), valid_loss)
-            np.save(opj(sm.paths.results_path,
-                    'validation_accuracy'), valid_acc)
+            print(
+                f'\tLoss: {loss_log[-1]}\n\tInput variance: {input_variance_log[-1]}\n\tOutput variance: {output_variance_log[-1]}')
 
-            torch.save(model.state_dict(), opj(
-                sm.paths.results_path, 'model_checkpoint.pt'))
+            save_gru(sm, l1_params)
 
     timestamp = datetime.now().strftime('%H:%M:%S')
     print(f'{timestamp} Finished training.')
 
-    test_loss = []
-    test_acc = []
-    tot_test_samples = 0
+    print(f'Final save of {sm.sim_name}.')
+    save_gru(sm, l1_params)
+    sim_save(sm, 'loss_log', loss_log)
+    sim_save(sm, 'input_variance_log', input_variance_log)
+    sim_save(sm, 'output_variance_log', output_variance_log)
 
-    # loop through entire testing set
-    for x, y, mask in test_iter:
-
-        x, y, mask = x.to(device), y.to(device), mask.to(device)
-
-        output, hidden = model(x)
-
-        bce_loss = loss_fcn(output, y, mask).cpu().item()
-        acc = acc_fcn(output, y, mask).cpu().item()
-
-        batch_size = x.shape[0]
-        tot_test_samples += batch_size
-        test_loss.append(batch_size*bce_loss)
-        test_acc.append(batch_size*acc)
-
-    final_test_loss = np.sum(test_loss)/tot_test_samples
-    final_test_acc = np.sum(test_acc)/tot_test_samples
-    print(
-        f'  Testing loss: {final_test_loss:.3}\n  Testing accuracy: {100*final_test_acc:.3}%')
-
-    print(f'Final save of.')
-    torch.save(model.state_dict(), opj(
-        sm.paths.results_path, 'model_checkpoint.pt'))
+        
     date = datetime.now().strftime('%d-%m-%Y')
     timestamp = datetime.now().strftime('%H:%M:%S')
     print(f'Training {sm.sim_name} ended on {date} at {timestamp}.')
@@ -146,11 +143,6 @@ def main(_argv):
 
     with sm:
 
-        # check for cuda
-        if FLAGS.use_gpu and not torch.cuda.is_available():
-            raise OSError(
-                'CUDA is not available. Check your installation or set `use_gpu` to False.')
-
         # dump FLAGS for this experiment
         with open(opj(sm.paths.data_path, 'FLAGS.json'), 'w') as f:
             flag_dict = {}
@@ -165,38 +157,11 @@ def main(_argv):
         else:
             random_seed = datetime.now().microsecond
         np.save(opj(sm.paths.data_path, 'random_seed'), random_seed)
-        jrd.seed(random_seed)
         rd.seed(random_seed)
         random.seed(random_seed)
+        rng = jrd.PRNGKey(random_seed)
 
-        # check for old model to restore from
-        if FLAGS.restore_from != '':
-
-            with open(opj(FLAGS.restore_from, 'data', 'FLAGS.json'), 'r') as f:
-                old_FLAGS = json.load(f)
-
-            architecture = old_FLAGS['architecture']
-            if architecture != FLAGS.architecture:
-                print(
-                    'Warning: restored architecture does not agree with architecture specified in FLAGS.')
-            n_rec = old_FLAGS['n_rec']
-            if n_rec != FLAGS.n_rec:
-                print(
-                    'Warning: restored number of recurrent units does not agree with number of recurrent units specified in FLAGS.')
-
-            model = MusicRNN(
-                architecture, n_rec, use_grad_clip=FLAGS.use_grad_clip, grad_clip=FLAGS.grad_clip)
-            model.load_state_dict(torch.load(
-                opj(FLAGS.restore_from, 'results', 'model_checkpoint.pt')))
-
-        else:
-            model = MusicRNN(FLAGS.architecture, FLAGS.n_rec,
-                             use_grad_clip=FLAGS.use_grad_clip, grad_clip=FLAGS.grad_clip)
-            initialize(model, FLAGS)
-
-        data_iter, valid_iter, test_iter = get_datasets(FLAGS)
-
-        train_loop(sm, FLAGS, model, data_iter, valid_iter, test_iter)
+        train_loop(sm, FLAGS, rng, data_iter)
 
 
 if __name__ == '__main__':
