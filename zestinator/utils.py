@@ -17,12 +17,9 @@ def sim_save(sm, name, array):
     np.save(opj(sm.paths.results_path, name), array)
 
 
-def batch_covariance(x):
-    x = x.reshape((x.shape[0], -1)) - jnp.mean(x)
-    vmap(partial(jnp.dot, x))(jnp.flip(x, axis=0))
-
-
-def encoder_loss(in_batch, out_batch):
-    in_cov = batch_covariance(in_batch)
-    out_cov = batch_covariance(out_batch)
-    return 0.5*jnp.sum((in_cov - out_cov)**2)
+def unfold_convolution(array, win, hop, axis=0):
+    array = jnp.moveaxis(array, axis, 0)
+    first = jnp.repeat(array[:-1], hop, axis=0)
+    second = jnp.repeat(array[-1].unsqueeze(0), win, axis=0)
+    together = jnp.concatenate([first, second], axis=0)
+    return jnp.moveaxis(together, 0, axis)

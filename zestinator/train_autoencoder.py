@@ -32,15 +32,6 @@ flags.DEFINE_string('results_path', 'experiments',
 flags.DEFINE_integer(
     'random_seed', -1, 'If not -1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
 
-# preprocessing
-flags.DEFINE_integer('sample_rate', 22050, 'Sample rate for audio files.')
-flags.DEFINE_integer('n_mel_features', 256,
-                     'Number of channels in mel spectrogram.')
-flags.DEFINE_integer(
-    'stft_win', 1000, 'Window length for short-time Fourier transform.')
-flags.DEFINE_integer(
-    'stft_hop', 250, 'Window hop for short-time Fourier transform.')
-
 # training
 flags.DEFINE_integer('max_steps', 10000,
                      'How many training batches to show the network.')
@@ -50,6 +41,7 @@ flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')
 flags.DEFINE_integer(
     'save_every', 500, 'Save the model and print metrics at this many training steps.')
+flags.DEFINE_string('data_path', '/home/medusa/Data/fma_small', 'Path to metric fuck ton of mp3s.')
 
 # model
 flags.DEFINE_string(
@@ -61,7 +53,7 @@ def train_loop(sm, FLAGS, rng, data_iter):
     # get GRU model and initialize parameters
     init_l1, apply_l1 = gru(512)
     x = next(data_iter)
-    l1_shape, l1_params = init_l1(rng, x.shape)
+    l1_params = init_l1(rng, x.shape)
 
     # construct the optimizer
     opt_initialize, opt_update, opt_get_params = rmsprop(FLAGS.lr)
@@ -120,7 +112,7 @@ def train_loop(sm, FLAGS, rng, data_iter):
     sim_save(sm, 'input_variance_log', input_variance_log)
     sim_save(sm, 'output_variance_log', output_variance_log)
 
-        
+
     date = datetime.now().strftime('%d-%m-%Y')
     timestamp = datetime.now().strftime('%H:%M:%S')
     print(f'Training {sm.sim_name} ended on {date} at {timestamp}.')
