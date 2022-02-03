@@ -1,3 +1,4 @@
+import numpy as np
 import jax.lax as lax
 import jax.numpy as jnp
 import jax.random as jrd
@@ -5,6 +6,8 @@ import jax.random as jrd
 from jax.nn import sigmoid
 from jax.lax import conv_general_dilated
 from jax.nn.initializers import glorot_normal, normal
+
+from os.path import join as opj
 
 from utils import sim_save, unfold_convolution
 
@@ -252,6 +255,88 @@ def decoder(W_init=glorot_normal(), b_init=normal()):
     return init_fun, apply_fun
 
 
+def save_triple_gru(sm, params, component='encoder'):
+
+    l1_params, l2_params, l3_params = params
+    (l1_update_W, l1_update_U, l1_update_b), (l1_reset_W, l1_reset_U, l1_reset_b), (
+        l1_out_W, l1_out_U, l1_out_b) = l1_params
+    (l2_update_W, l2_update_U, l2_update_b), (l2_reset_W, l2_reset_U, l2_reset_b), (
+        l2_out_W, l2_out_U, l2_out_b) = l2_params
+    (l3_update_W, l3_update_U, l3_update_b), (l3_reset_W, l3_reset_U, l3_reset_b), (
+        l3_out_W, l3_out_U, l3_out_b) = l3_params
+
+    sim_save(sm, f'{component}_l1_update_W', l1_update_W)
+    sim_save(sm, f'{component}_l1_update_U', l1_update_U)
+    sim_save(sm, f'{component}_l1_update_b', l1_update_b)
+    sim_save(sm, f'{component}_l1_reset_W', l1_reset_W)
+    sim_save(sm, f'{component}_l1_reset_U', l1_reset_U)
+    sim_save(sm, f'{component}_l1_reset_b', l1_reset_b)
+    sim_save(sm, f'{component}_l1_out_W', l1_out_W)
+    sim_save(sm, f'{component}_l1_out_U', l1_out_U)
+    sim_save(sm, f'{component}_l1_out_b', l1_out_b)
+
+    sim_save(sm, f'{component}_l2_update_W', l2_update_W)
+    sim_save(sm, f'{component}_l2_update_U', l2_update_U)
+    sim_save(sm, f'{component}_l2_update_b', l2_update_b)
+    sim_save(sm, f'{component}_l2_reset_W', l2_reset_W)
+    sim_save(sm, f'{component}_l2_reset_U', l2_reset_U)
+    sim_save(sm, f'{component}_l2_reset_b', l2_reset_b)
+    sim_save(sm, f'{component}_l2_out_W', l2_out_W)
+    sim_save(sm, f'{component}_l2_out_U', l2_out_U)
+    sim_save(sm, f'{component}_l2_out_b', l2_out_b)
+
+    sim_save(sm, f'{component}_l3_update_W', l3_update_W)
+    sim_save(sm, f'{component}_l3_update_U', l3_update_U)
+    sim_save(sm, f'{component}_l3_update_b', l3_update_b)
+    sim_save(sm, f'{component}_l3_reset_W', l3_reset_W)
+    sim_save(sm, f'{component}_l3_reset_U', l3_reset_U)
+    sim_save(sm, f'{component}_l3_reset_b', l3_reset_b)
+    sim_save(sm, f'{component}_l3_out_W', l3_out_W)
+    sim_save(sm, f'{component}_l3_out_U', l3_out_U)
+    sim_save(sm, f'{component}_l3_out_b', l3_out_b)
+
+
+def load_triple_gru(path, component='encoder'):
+
+    l1_update_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_update_W')))
+    l1_update_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_update_U')))
+    l1_update_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_update_b')))
+    l1_reset_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_reset_W')))
+    l1_reset_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_reset_U')))
+    l1_reset_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_reset_b')))
+    l1_out_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_out_W')))
+    l1_out_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_out_U')))
+    l1_out_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l1_out_b')))
+    l1_params = (l1_update_W, l1_update_U, l1_update_b), (l1_reset_W, l1_reset_U, l1_reset_b), (
+        l1_out_W, l1_out_U, l1_out_b)
+
+    l2_update_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_update_W')))
+    l2_update_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_update_U')))
+    l2_update_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_update_b')))
+    l2_reset_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_reset_W')))
+    l2_reset_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_reset_U')))
+    l2_reset_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_reset_b')))
+    l2_out_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_out_W')))
+    l2_out_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_out_U')))
+    l2_out_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l2_out_b')))
+    l2_params = (l2_update_W, l2_update_U, l2_update_b), (l2_reset_W, l2_reset_U, l2_reset_b), (
+        l2_out_W, l2_out_U, l2_out_b)
+
+    l3_update_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_update_W')))
+    l3_update_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_update_U')))
+    l3_update_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_update_b')))
+    l3_reset_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_reset_W')))
+    l3_reset_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_reset_U')))
+    l3_reset_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_reset_b')))
+    l3_out_W = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_out_W')))
+    l3_out_U = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_out_U')))
+    l3_out_b = jnp.ndarray(np.load(opj(path, 'results', f'{component}_l3_out_b')))
+    l3_params = (l3_update_W, l3_update_U, l3_update_b), (l3_reset_W, l3_reset_U, l3_reset_b), (
+        l3_out_W, l3_out_U, l3_out_b)
+
+    return l1_params, l2_params, l3_params
+
+
 def discriminator(W_init=glorot_normal(), b_init=normal()):
 
     l1_init, l1_apply = gru(288, W_init=W_init, b_init=b_init)
@@ -277,10 +362,77 @@ def discriminator(W_init=glorot_normal(), b_init=normal()):
         unfolded_representation = unfold_convolution(representation, 36, 20)
 
         # discriminator receives spectrogram and time-dependent representation as input
-        inputs = jnp.stack([representation, spectrogram], axis=1)
+        inputs = jnp.stack([unfolded_representation, spectrogram], axis=1)
 
         l1_output = l1_apply(l1_params, inputs)
         l2_output = l2_apply(l2_params, l1_output)
-        output = jnp.dot(out_W, l2_output) + out_b
+        output = jnp.dot(out_W, l2_output[-1]) + out_b
 
         return output
+
+    return init_fun, apply_fun
+
+
+def save_discriminator(sm, params):
+
+    l1_params, l2_params, (out_W, out_b) = params
+    (l1_update_W, l1_update_U, l1_update_b), (l1_reset_W, l1_reset_U, l1_reset_b), (
+        l1_out_W, l1_out_U, l1_out_b) = l1_params
+    (l2_update_W, l2_update_U, l2_update_b), (l2_reset_W, l2_reset_U, l2_reset_b), (
+        l2_out_W, l2_out_U, l2_out_b) = l2_params
+
+    sim_save(sm, 'discriminator_l1_update_W', l1_update_W)
+    sim_save(sm, 'discriminator_l1_update_U', l1_update_U)
+    sim_save(sm, 'discriminator_l1_update_b', l1_update_b)
+    sim_save(sm, 'discriminator_l1_reset_W', l1_reset_W)
+    sim_save(sm, 'discriminator_l1_reset_U', l1_reset_U)
+    sim_save(sm, 'discriminator_l1_reset_b', l1_reset_b)
+    sim_save(sm, 'discriminator_l1_out_W', l1_out_W)
+    sim_save(sm, 'discriminator_l1_out_U', l1_out_U)
+    sim_save(sm, 'discriminator_l1_out_b', l1_out_b)
+
+    sim_save(sm, 'discriminator_l2_update_W', l2_update_W)
+    sim_save(sm, 'discriminator_l2_update_U', l2_update_U)
+    sim_save(sm, 'discriminator_l2_update_b', l2_update_b)
+    sim_save(sm, 'discriminator_l2_reset_W', l2_reset_W)
+    sim_save(sm, 'discriminator_l2_reset_U', l2_reset_U)
+    sim_save(sm, 'discriminator_l2_reset_b', l2_reset_b)
+    sim_save(sm, 'discriminator_l2_out_W', l2_out_W)
+    sim_save(sm, 'discriminator_l2_out_U', l2_out_U)
+    sim_save(sm, 'discriminator_l2_out_b', l2_out_b)
+
+    sim_save(sm, 'discriminator_out_W', out_W)
+    sim_save(sm, 'discriminator_out_b', out_b)
+
+
+def load_discriminator(path):
+
+    l1_update_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_update_W')))
+    l1_update_U = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_update_U')))
+    l1_update_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_update_b')))
+    l1_reset_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_reset_W')))
+    l1_reset_U = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_reset_U')))
+    l1_reset_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_reset_b')))
+    l1_out_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_out_W')))
+    l1_out_U = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_out_U')))
+    l1_out_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l1_out_b')))
+    l1_params = (l1_update_W, l1_update_U, l1_update_b), (l1_reset_W, l1_reset_U, l1_reset_b), (
+        l1_out_W, l1_out_U, l1_out_b)
+
+    l2_update_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_update_W')))
+    l2_update_U = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_update_U')))
+    l2_update_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_update_b')))
+    l2_reset_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_reset_W')))
+    l2_reset_U = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_reset_U')))
+    l2_reset_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_reset_b')))
+    l2_out_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_out_W')))
+    l2_out_U = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_out_U')))
+    l2_out_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_l2_out_b')))
+    l2_params = (l2_update_W, l2_update_U, l2_update_b), (l2_reset_W, l2_reset_U, l2_reset_b), (
+        l2_out_W, l2_out_U, l2_out_b)
+
+    out_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_out_W')))
+    out_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_out_b')))
+
+    return l1_params, l2_params, (out_W, out_b)
+
