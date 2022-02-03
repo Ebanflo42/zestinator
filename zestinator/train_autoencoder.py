@@ -35,7 +35,7 @@ flags.DEFINE_string('results_path', 'experiments',
 flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
 flags.DEFINE_integer('batch_size', 1, 'Batch size.')
-flags.DEFINE_integer('track_duration', 1, 'Length of track clip in seconds.')
+flags.DEFINE_float('track_duration', 1, 'Length of track clip in seconds.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
 flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')

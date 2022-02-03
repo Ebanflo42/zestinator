@@ -206,17 +206,17 @@ def repeating_gru(out_dim: int, win: int, hop: int, W_init=glorot_normal(), b_in
 def encoder(W_init=glorot_normal(), b_init=normal()):
 
     l1_init, l1_apply = convolutional_gru(
-        128, 6, 2, W_init=W_init, b_init=b_init)
-    l2_init, l2_apply = convolutional_gru(
         64, 6, 2, W_init=W_init, b_init=b_init)
+    l2_init, l2_apply = convolutional_gru(
+        32, 6, 2, W_init=W_init, b_init=b_init)
     l3_init, l3_apply = convolutional_gru(
-        32, 6, 5, W_init=W_init, b_init=b_init)
+        16, 6, 5, W_init=W_init, b_init=b_init)
 
     def init_fun(rng):
 
-        l1_params = l1_init(rng, 256)
-        l2_params = l2_init(rng, 128)
-        l3_params = l3_init(rng, 64)
+        l1_params = l1_init(rng, 128)
+        l2_params = l2_init(rng, 64)
+        l3_params = l3_init(rng, 32)
 
         return l1_params, l2_params, l3_params
 
@@ -235,17 +235,17 @@ def encoder(W_init=glorot_normal(), b_init=normal()):
 def decoder(W_init=glorot_normal(), b_init=normal()):
 
     l1_init, l1_apply = repeating_gru(
-        64, 6, 5, W_init=W_init, b_init=b_init)
+        32, 6, 5, W_init=W_init, b_init=b_init)
     l2_init, l2_apply = repeating_gru(
-        128, 6, 2, W_init=W_init, b_init=b_init)
+        64, 6, 2, W_init=W_init, b_init=b_init)
     l3_init, l3_apply = repeating_gru(
-        256, 6, 2, W_init=W_init, b_init=b_init)
+        128, 6, 2, W_init=W_init, b_init=b_init)
 
     def init_fun(rng):
 
-        l1_params = l1_init(rng, 32)
-        l2_params = l2_init(rng, 64)
-        l3_params = l3_init(rng, 128)
+        l1_params = l1_init(rng, 16)
+        l2_params = l2_init(rng, 32)
+        l3_params = l3_init(rng, 64)
 
         return l1_params, l2_params, l3_params
 
@@ -372,8 +372,8 @@ def load_triple_gru(path, component='encoder'):
 
 def discriminator(W_init=glorot_normal(), b_init=normal()):
 
-    l1_init, l1_apply = gru(144, W_init=W_init, b_init=b_init)
-    l2_init, l2_apply = gru(72, W_init=W_init, b_init=b_init)
+    l1_init, l1_apply = gru(72, W_init=W_init, b_init=b_init)
+    l2_init, l2_apply = gru(36, W_init=W_init, b_init=b_init)
 
     def init_fun(rng, in_dim):
 
