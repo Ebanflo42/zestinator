@@ -7,7 +7,7 @@ import numpy.random as rd
 import jax.numpy as jnp
 import jax.random as jrd
 
-from jax import vmap, pmap, value_and_grad, partial
+from jax import vmap, pmap, value_and_grad
 from jax.example_libraries.optimizers import rmsprop
 
 from simmanager import SimManager
@@ -32,9 +32,9 @@ flags.DEFINE_string('results_path', 'experiments',
                     'Name of the directory to save all results within.')
 
 # training
-flags.DEFINE_integer('max_steps', 10000,
+flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
-flags.DEFINE_integer('batch_size', 50, 'Batch size.')
+flags.DEFINE_integer('batch_size', 12, 'Batch size.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
 flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')
@@ -60,10 +60,10 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
         encoding = pmap(vmap(partial(apply_encoder, eparams)))(x)
         decoding = pmap(vmap(partial(apply_decoder, dparams)))(encoding)
         mse = jnp.mean((encoding - decoding)**2)
-        return mse
+        return mse, decoding
 
     # derivative of forward pass with respect to parameters
-    forward_backward_pass = value_and_grad(forward_pass, argnums=(0, 1))
+    forward_backward_pass = value_and_grad(forward_pass, argnums=(0, 1), has_aux=True)
 
     # track some metrics
     mse_log = []
@@ -73,34 +73,35 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
     while i < FLAGS.max_steps:
 
         # get next training sample
-        x = jnp.ndarray(next(song_iter))
+        x = next(song_iter)
+        jx = jnp.asarray(x)
 
         # forward pass and backward pass
-        mse, grads = forward_backward_pass(encoder_params, decoder_params, x)
+        (mse, y), grads = forward_backward_pass(encoder_params, decoder_params, jx)
 
         # optimizer step
         opt_state = opt_update(i, grads, opt_state)
         encoder_params, decoder_params = opt_get_params(opt_state)
 
-        # record metrics
-        npmse = mse.numpy().item()
-        mse_log.append(npmse)
-        r2_log.append(1 - npmse/np.var(x.numpy()))
-
         if i > 0 and i % FLAGS.save_every == 0:
 
-            timestamp = datetime.now().strftime('%H:%M:%S')
-            print(f'{timestamp} Saving {sm.sim_name} at iteration {i}.\n')
+            # record metrics
+            mse_log.append(mse.numpy().item())
+            r2 = 1 - jnp.sum(jnp.var(y, axis=(2, 3))/jnp.var(x, axis=(2, 3))).numpy().item()
+            r2_log.append(r2)
 
             sim_save(sm, 'mse_log', mse_log)
             sim_save(sm, 'r2_log', r2_log)
             sim_save(sm, 'iteration', i)
 
-            print(
-                f'\tMSE: {mse_log[-1]}\n\tDetermination coefficient: {r2_log[-1]}')
-
             save_triple_gru(sm, encoder_params, component='encoder')
             save_triple_gru(sm, decoder_params, component='decoder')
+
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            print(f'{timestamp} Saved {sm.sim_name} at iteration {i}.\n')
+
+            print(
+                f'\tMSE: {mse_log[-1]}\n\tDetermination coefficient: {r2_log[-1]}')
 
         i += 1
 
