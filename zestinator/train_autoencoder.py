@@ -17,7 +17,8 @@ from absl import app, flags
 from os.path import join as opj
 
 from models import encoder, decoder, save_triple_gru, load_triple_gru
-from utils import encoder_loss, sim_save
+from load_data import get_song_iterator
+from utils import sim_save
 
 
 FLAGS = flags.FLAGS
@@ -48,7 +49,7 @@ flags.DEFINE_string(
 
 
 def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
-                   apply_decoder, decoder_params, data_iter):
+                   apply_decoder, decoder_params, song_iter):
 
     # construct the optimizer
     opt_initialize, opt_update, opt_get_params = rmsprop(FLAGS.lr)
@@ -56,8 +57,8 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
 
     # define full forward pass from data to MSE Loss
     def forward_pass(eparams, dparams, x):
-        encoding = pmap(vmap(partial(apply_encoder, eparams)))
-        decoding = pmap(vmap(partial(apply_decoder, dparams)))
+        encoding = pmap(vmap(partial(apply_encoder, eparams)))(x)
+        decoding = pmap(vmap(partial(apply_decoder, dparams)))(encoding)
         mse = jnp.mean((encoding - decoding)**2)
         return mse
 
@@ -72,7 +73,7 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
     while i < FLAGS.max_steps:
 
         # get next training sample
-        x = next(data_iter)
+        x = jnp.ndarray(next(song_iter))
 
         # forward pass and backward pass
         mse, grads = forward_backward_pass(encoder_params, decoder_params, x)
@@ -166,8 +167,10 @@ def main(_argv):
             decoder_params = init_decoder(rng)
             i = 0
 
+        song_iter = get_song_iterator(FLAGS)
+
         train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
-                   apply_decoder, decoder_params, data_iter)
+                   apply_decoder, decoder_params, song_iter)
 
 
 if __name__ == '__main__':
