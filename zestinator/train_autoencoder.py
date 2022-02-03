@@ -34,7 +34,8 @@ flags.DEFINE_string('results_path', 'experiments',
 # training
 flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
-flags.DEFINE_integer('batch_size', 12, 'Batch size.')
+flags.DEFINE_integer('batch_size', 1, 'Batch size.')
+flags.DEFINE_integer('track_duration', 1, 'Length of track clip in seconds.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
 flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')
@@ -57,9 +58,9 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
 
     # define full forward pass from data to MSE Loss
     def forward_pass(eparams, dparams, x):
-        encoding = pmap(vmap(partial(apply_encoder, eparams)))(x)
-        decoding = pmap(vmap(partial(apply_decoder, dparams)))(encoding)
-        mse = jnp.mean((encoding - decoding)**2)
+        f = lambda x1: apply_decoder(dparams, apply_encoder(eparams, x1))
+        decoding = pmap(vmap(f))(x)
+        mse = jnp.mean((x - decoding)**2)
         return mse, decoding
 
     # derivative of forward pass with respect to parameters

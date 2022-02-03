@@ -14,6 +14,6 @@ def sim_save(sm, name, array):
 def unfold_convolution(array, win, hop, axis=0):
     array = jnp.moveaxis(array, axis, 0)
     first = jnp.repeat(array[:-1], hop, axis=0)
-    second = jnp.repeat(array[-1].unsqueeze(0), win, axis=0)
+    second = jnp.repeat(array[-1][jnp.newaxis], win, axis=0)
     together = jnp.concatenate([first, second], axis=0)
     return jnp.moveaxis(together, 0, axis)

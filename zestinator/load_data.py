@@ -9,7 +9,7 @@ from librosa.feature import melspectrogram
 from librosa.core.audio import __audioread_load, to_mono, resample
 
 
-def preprocess_one_example(mp3_paths):
+def preprocess_one_example(mp3_paths, T):
 
     ix = rd.randint(0, len(mp3_paths))
     path = mp3_paths[ix]
@@ -17,7 +17,8 @@ def preprocess_one_example(mp3_paths):
     sr = 20000
 
     track, sr_native = __audioread_load(path, 0.0, None, np.float32)
-    waveform = resample(to_mono(track), sr_native, sr, res_type='kaiser_best')[:20*sr]
+    waveform = resample(to_mono(track), sr_native, sr,
+                        res_type='kaiser_best')[:T*sr]
     spectrogram = melspectrogram(
         waveform, sr=sr, n_fft=1000, hop_length=200, n_mels=256)
 
@@ -37,7 +38,7 @@ def get_song_iterator(FLAGS):
     def song_iter():
         while True:
             samples = Parallel(n_jobs=-1, prefer='threads')(
-                delayed(preprocess_one_example)(mp3_paths) for _ in range(FLAGS.batch_size))
+                delayed(preprocess_one_example)(mp3_paths, FLAGS.track_duration) for _ in range(FLAGS.batch_size))
             samples = np.stack(samples, axis=0)
             yield samples.reshape((n_batches, minibatch_size, -1, 256))
 

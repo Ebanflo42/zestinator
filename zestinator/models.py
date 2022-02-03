@@ -49,10 +49,10 @@ def gru(out_dim: int, W_init=glorot_normal(), b_init=normal()):
         def dynamic_step(hidden, inp):
 
             update_gate = sigmoid(
-                jnp.dot(update_W, inp) + jnp.dot(hidden, update_U) + update_b)
-            reset_gate = sigmoid(jnp.dot(reset_W, inp) +
+                jnp.dot(inp, update_W) + jnp.dot(hidden, update_U) + update_b)
+            reset_gate = sigmoid(jnp.dot(inp, reset_W) +
                                  jnp.dot(hidden, reset_U) + reset_b)
-            output_gate = jnp.tanh(jnp.dot(out_W, inp)
+            output_gate = jnp.tanh(jnp.dot(inp, out_W)
                                    + jnp.dot(jnp.multiply(reset_gate,
                                              hidden), out_U) + out_b)
             output = jnp.multiply(update_gate, hidden) + \
@@ -113,8 +113,9 @@ def convolutional_gru(out_dim: int, win: int, hop: int, W_init=glorot_normal(), 
             inputs, reset_W, window_strides=[hop], padding='VALID')
         out_conv = conv_general_dilated(
             inputs, out_W, window_strides=[hop], padding='VALID')
-        stacked_conv = jnp.stack([jnp.moveaxis(update_conv[0], 1, 0), jnp.moveaxis(
-            reset_conv[0], 1, 0), jnp.moveaxis(out_conv[0], 1, 0)], axis=1)
+        stacked_conv = jnp.concatenate(
+            [update_conv, reset_conv, out_conv], axis=0)
+        stacked_conv = jnp.transpose(stacked_conv, (2, 0, 1))
 
         # define dynamic GRU step
         def dynamic_step(hidden, inp):
@@ -182,10 +183,10 @@ def repeating_gru(out_dim: int, win: int, hop: int, W_init=glorot_normal(), b_in
         def dynamic_step(hidden, inp):
 
             update_gate = sigmoid(
-                jnp.dot(update_W, inp) + jnp.dot(hidden, update_U) + update_b)
-            reset_gate = sigmoid(jnp.dot(reset_W, inp) +
+                jnp.dot(inp, update_W) + jnp.dot(hidden, update_U) + update_b)
+            reset_gate = sigmoid(jnp.dot(inp, reset_W) +
                                  jnp.dot(hidden, reset_U) + reset_b)
-            output_gate = jnp.tanh(jnp.dot(out_W, inp)
+            output_gate = jnp.tanh(jnp.dot(inp, out_W)
                                    + jnp.dot(jnp.multiply(reset_gate,
                                              hidden), out_U) + out_b)
             output = jnp.multiply(update_gate, hidden) + \
@@ -194,8 +195,8 @@ def repeating_gru(out_dim: int, win: int, hop: int, W_init=glorot_normal(), b_in
             return output, output
 
         # run GRU over unrolled input
-        _, hiddens = lax.scan(dynamic_step, jnp.zeros_like(
-            unfolded_inputs[0]), unfolded_inputs)
+        _, hiddens = lax.scan(dynamic_step, jnp.zeros(
+            out_dim, dtype=jnp.float32), unfolded_inputs)
 
         return hiddens
 
@@ -223,9 +224,8 @@ def encoder(W_init=glorot_normal(), b_init=normal()):
 
         l1_params, l2_params, l3_params = params
 
-        l1_output = l1_apply(l1_params, inputs)
-        l2_output = l2_apply(l2_params, l1_output)
-        l3_output = l3_apply(l3_params, l2_output)
+        l3_output = l3_apply(l3_params, l2_apply(
+            l2_params, l1_apply(l1_params, inputs)))
 
         return l3_output
 
@@ -234,11 +234,11 @@ def encoder(W_init=glorot_normal(), b_init=normal()):
 
 def decoder(W_init=glorot_normal(), b_init=normal()):
 
-    l1_init, l1_apply = convolutional_gru(
+    l1_init, l1_apply = repeating_gru(
         64, 6, 5, W_init=W_init, b_init=b_init)
-    l2_init, l2_apply = convolutional_gru(
+    l2_init, l2_apply = repeating_gru(
         128, 6, 2, W_init=W_init, b_init=b_init)
-    l3_init, l3_apply = convolutional_gru(
+    l3_init, l3_apply = repeating_gru(
         256, 6, 2, W_init=W_init, b_init=b_init)
 
     def init_fun(rng):
@@ -253,9 +253,8 @@ def decoder(W_init=glorot_normal(), b_init=normal()):
 
         l1_params, l2_params, l3_params = params
 
-        l1_output = l1_apply(l1_params, inputs)
-        l2_output = l2_apply(l2_params, l1_output)
-        l3_output = l3_apply(l3_params, l2_output)
+        l3_output = l3_apply(l3_params, l2_apply(
+            l2_params, l1_apply(l1_params, inputs)))
 
         return l3_output
 
@@ -400,7 +399,7 @@ def discriminator(W_init=glorot_normal(), b_init=normal()):
 
         l1_output = l1_apply(l1_params, inputs)
         l2_output = l2_apply(l2_params, l1_output)
-        output = jnp.dot(out_W, l2_output[-1]) + out_b
+        output = jnp.dot(l2_output[-1], out_W) + out_b
 
         return output
 
