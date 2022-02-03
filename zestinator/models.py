@@ -108,11 +108,11 @@ def convolutional_gru(out_dim: int, win: int, hop: int, W_init=glorot_normal(), 
         inputs = jnp.reshape(jnp.moveaxis(inputs, 1, 0),
                              (1, inputs.shape[1], inputs.shape[0]))
         update_conv = conv_general_dilated(
-            inputs, update_W, window_strides=[hop], padding='VALID')
+            inputs, update_W, window_strides=[hop], padding='SAME')
         reset_conv = conv_general_dilated(
-            inputs, reset_W, window_strides=[hop], padding='VALID')
+            inputs, reset_W, window_strides=[hop], padding='SAME')
         out_conv = conv_general_dilated(
-            inputs, out_W, window_strides=[hop], padding='VALID')
+            inputs, out_W, window_strides=[hop], padding='SAME')
         stacked_conv = jnp.concatenate(
             [update_conv, reset_conv, out_conv], axis=0)
         stacked_conv = jnp.transpose(stacked_conv, (2, 0, 1))
