@@ -15,33 +15,31 @@ from utils import sim_save, unfold_convolution
 def gru(out_dim: int, W_init=glorot_normal(), b_init=normal()):
 
     # initializer
-    def init_fun(rng, input_shape):
+    def init_fun(rng, in_dim):
 
         k1, k2, k3 = jrd.split(rng, num=3)
         update_W, update_U, update_b = (
-            W_init(k1, (input_shape[1], out_dim)),
+            W_init(k1, (in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
         k1, k2, k3 = jrd.split(rng, num=3)
         reset_W, reset_U, reset_b = (
-            W_init(k1, (input_shape[1], out_dim)),
+            W_init(k1, (in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
         k1, k2, k3 = jrd.split(rng, num=3)
         out_W, out_U, out_b = (
-            W_init(k1, (input_shape[1], out_dim)),
+            W_init(k1, (in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
-        out_shape = (input_shape[0], out_dim)
-
-        return out_shape, ((update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
-            out_W, out_U, out_b))
+        return (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
+            out_W, out_U, out_b)
 
     # apply model
-    def apply_fun(params, inputs, **kwargs):
+    def apply_fun(params, inputs):
 
         # unwrap parameters
         (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
@@ -75,33 +73,31 @@ def convolutional_gru(out_dim: int, win: int, hop: int, W_init=glorot_normal(), 
     """
 
     # initializer
-    def init_fun(rng, input_shape):
+    def init_fun(rng, in_dim):
 
         k1, k2, k3 = jrd.split(rng, num=3)
         update_W, update_U, update_b = (
-            W_init(k1, (win, input_shape[1], out_dim)),
+            W_init(k1, (win, in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
         k1, k2, k3 = jrd.split(rng, num=3)
         reset_W, reset_U, reset_b = (
-            W_init(k1, (win, input_shape[1], out_dim)),
+            W_init(k1, (win, in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
         k1, k2, k3 = jrd.split(rng, num=3)
         out_W, out_U, out_b = (
-            W_init(k1, (win, input_shape[1], out_dim)),
+            W_init(k1, (win, in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
-        out_shape = ((input_shape[0] - win)//hop + 1, out_dim)
-
-        return out_shape, ((update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
-            out_W, out_U, out_b))
+        return (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
+            out_W, out_U, out_b)
 
     # apply model
-    def apply_fun(params, inputs, **kwargs):
+    def apply_fun(params, inputs):
 
         # unwrap parameters
         (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
@@ -144,33 +140,31 @@ def repeating_gru(out_dim: int, win: int, hop: int, W_init=glorot_normal(), b_in
     """
 
     # initializer
-    def init_fun(rng, input_shape):
+    def init_fun(rng, in_dim):
 
         k1, k2, k3 = jrd.split(rng, num=3)
         update_W, update_U, update_b = (
-            W_init(k1, (input_shape[1], out_dim)),
+            W_init(k1, (in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
         k1, k2, k3 = jrd.split(rng, num=3)
         reset_W, reset_U, reset_b = (
-            W_init(k1, (input_shape[1], out_dim)),
+            W_init(k1, (in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
         k1, k2, k3 = jrd.split(rng, num=3)
         out_W, out_U, out_b = (
-            W_init(k1, (input_shape[1], out_dim)),
+            W_init(k1, (in_dim, out_dim)),
             W_init(k2, (out_dim, out_dim)),
             b_init(k3, (out_dim,)),)
 
-        out_shape = (hop*(input_shape[0] - 1) + win, out_dim)
-
-        return out_shape, ((update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
-            out_W, out_U, out_b))
+        return (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
+            out_W, out_U, out_b)
 
     # apply model
-    def apply_fun(params, inputs, **kwargs):
+    def apply_fun(params, inputs):
 
         # unwrap parameters
         (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
@@ -207,11 +201,11 @@ def encoder(W_init=glorot_normal(), b_init=normal()):
     l2_init, l2_apply = convolutional_gru(128, 6, 2, W_init=W_init, b_init=b_init)
     l3_init, l3_apply = convolutional_gru(64, 6, 5, W_init=W_init, b_init=b_init)
 
-    def init_fun(rng, input_shape):
+    def init_fun(rng):
 
-        l1_shape, l1_params = l1_init(rng, input_shape)
-        l2_shape, l2_params = l2_init(rng, l1_shape)
-        l3_shape, l3_params = l3_init(rng, l2_shape)
+        l1_params = l1_init(rng, 512)
+        l2_params = l2_init(rng, 256)
+        l3_params = l3_init(rng, 128)
 
         return l1_params, l2_params, l3_params
 
@@ -234,11 +228,11 @@ def decoder(W_init=glorot_normal(), b_init=normal()):
     l2_init, l2_apply = convolutional_gru(256, 6, 2, W_init=W_init, b_init=b_init)
     l3_init, l3_apply = convolutional_gru(512, 6, 2, W_init=W_init, b_init=b_init)
 
-    def init_fun(rng, input_shape):
+    def init_fun(rng):
 
-        l1_shape, l1_params = l1_init(rng, input_shape)
-        l2_shape, l2_params = l2_init(rng, l1_shape)
-        l3_shape, l3_params = l3_init(rng, l2_shape)
+        l1_params = l1_init(rng, 64)
+        l2_params = l2_init(rng, 128)
+        l3_params = l3_init(rng, 256)
 
         return l1_params, l2_params, l3_params
 
@@ -342,9 +336,9 @@ def discriminator(W_init=glorot_normal(), b_init=normal()):
     l1_init, l1_apply = gru(288, W_init=W_init, b_init=b_init)
     l2_init, l2_apply = gru(144, W_init=W_init, b_init=b_init)
 
-    def init_fun(rng, input_shape):
+    def init_fun(rng, in_dim):
 
-        l1_shape, l1_params = l1_init(rng, input_shape)
+        l1_shape, l1_params = l1_init(rng, in_dim)
         l2_shape, l2_params = l2_init(rng, l1_shape)
 
         k1, k2 = jrd.split(rng, num=2)
