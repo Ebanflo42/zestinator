@@ -87,9 +87,9 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
         if i > 0 and i % FLAGS.save_every == 0:
 
             # record metrics
-            mse_log.append(mse.numpy().item())
-            r2 = 1 - jnp.sum(jnp.var(y, axis=(2, 3))/jnp.var(x, axis=(2, 3))).numpy().item()
-            r2_log.append(r2)
+            mse_log.append(mse.item())
+            r2 = 1 - jnp.sum(jnp.var(y, axis=(2, 3))/jnp.var(x, axis=(2, 3)))
+            r2_log.append(r2.item())
 
             sim_save(sm, 'mse_log', mse_log)
             sim_save(sm, 'r2_log', r2_log)
@@ -99,10 +99,10 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
             save_triple_gru(sm, decoder_params, component='decoder')
 
             timestamp = datetime.now().strftime('%H:%M:%S')
-            print(f'{timestamp} Saved {sm.sim_name} at iteration {i}.\n')
+            print(f'{timestamp} Saved {sm.sim_name} at iteration {i}.')
 
             print(
-                f'\tMSE: {mse_log[-1]}\n\tDetermination coefficient: {r2_log[-1]}')
+                f'\tMSE: {mse_log[-1]}\n\tDetermination coefficient: {r2_log[-1]}\n')
 
         i += 1
 

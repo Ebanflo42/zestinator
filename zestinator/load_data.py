@@ -20,7 +20,7 @@ def preprocess_one_example(mp3_paths, T):
     waveform = resample(to_mono(track), sr_native, sr,
                         res_type='kaiser_best')[:int(T*sr)]
     spectrogram = melspectrogram(
-        waveform, sr=sr, n_fft=1000, hop_length=200, n_mels=128)
+        waveform, sr=sr, n_fft=1000, hop_length=200, n_mels=256)
 
     return spectrogram
 
@@ -40,6 +40,6 @@ def get_song_iterator(FLAGS):
             samples = Parallel(n_jobs=-1, prefer='threads')(
                 delayed(preprocess_one_example)(mp3_paths, FLAGS.track_duration) for _ in range(FLAGS.batch_size))
             samples = np.stack(samples, axis=0)
-            yield samples.reshape((n_batches, minibatch_size, -1, 128))
+            yield samples.reshape((n_batches, minibatch_size, -1, 256))
 
     return song_iter()
