@@ -39,7 +39,7 @@ def get_song_iterator(FLAGS):
         while True:
             samples = Parallel(n_jobs=-1, prefer='threads')(
                 delayed(preprocess_one_example)(mp3_paths, FLAGS.track_duration) for _ in range(FLAGS.batch_size))
-            samples = np.stack(samples, axis=0)
-            yield samples.reshape((n_batches, minibatch_size, -1, 256))
+            samples = np.stack([s.T for s in samples], axis=0)
+            yield samples
 
     return song_iter()
