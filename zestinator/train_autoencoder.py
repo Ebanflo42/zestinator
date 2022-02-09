@@ -90,7 +90,16 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
         jx = jnp.asarray(x)
         print(f'Got sample! {x.shape}')
 
+<<<<<<< HEAD
         y, mse, encoder_params, decoder_params, opt_state = jit_train_step(x, encoder_params, decoder_params, opt_state, i)
+=======
+        # forward pass and backward pass
+        (loss, (y, mse, reg)), grads = forward_backward_pass(encoder_params, decoder_params, jx)
+
+        # optimizer step
+        opt_state = opt_update(i, grads, opt_state)
+        encoder_params, decoder_params = opt_get_params(opt_state)
+>>>>>>> 71b754fbdbf23ab942a77f80c0bce20f4b3fb152
 
         if i > 0 and i % FLAGS.save_every == 0:
 
