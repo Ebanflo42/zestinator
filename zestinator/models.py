@@ -303,66 +303,66 @@ def save_triple_gru(sm, params, component='encoder'):
 
 def load_triple_gru(path, component='encoder'):
 
-    l1_update_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_update_W')))
-    l1_update_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_update_U')))
-    l1_update_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_update_b')))
-    l1_reset_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_reset_W')))
-    l1_reset_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_reset_U')))
-    l1_reset_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_reset_b')))
-    l1_out_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_out_W')))
-    l1_out_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_out_U')))
-    l1_out_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l1_out_b')))
+    l1_update_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_update_W.npy')))
+    l1_update_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_update_U.npy')))
+    l1_update_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_update_b.npy')))
+    l1_reset_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_reset_W.npy')))
+    l1_reset_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_reset_U.npy')))
+    l1_reset_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_reset_b.npy')))
+    l1_out_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_out_W.npy')))
+    l1_out_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_out_U.npy')))
+    l1_out_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l1_out_b.npy')))
     l1_params = (l1_update_W, l1_update_U, l1_update_b), (l1_reset_W, l1_reset_U, l1_reset_b), (
         l1_out_W, l1_out_U, l1_out_b)
 
-    l2_update_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_update_W')))
-    l2_update_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_update_U')))
-    l2_update_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_update_b')))
-    l2_reset_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_reset_W')))
-    l2_reset_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_reset_U')))
-    l2_reset_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_reset_b')))
-    l2_out_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_out_W')))
-    l2_out_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_out_U')))
-    l2_out_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l2_out_b')))
+    l2_update_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_update_W.npy')))
+    l2_update_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_update_U.npy')))
+    l2_update_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_update_b.npy')))
+    l2_reset_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_reset_W.npy')))
+    l2_reset_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_reset_U.npy')))
+    l2_reset_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_reset_b.npy')))
+    l2_out_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_out_W.npy')))
+    l2_out_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_out_U.npy')))
+    l2_out_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l2_out_b.npy')))
     l2_params = (l2_update_W, l2_update_U, l2_update_b), (l2_reset_W, l2_reset_U, l2_reset_b), (
         l2_out_W, l2_out_U, l2_out_b)
 
-    l3_update_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_update_W')))
-    l3_update_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_update_U')))
-    l3_update_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_update_b')))
-    l3_reset_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_reset_W')))
-    l3_reset_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_reset_U')))
-    l3_reset_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_reset_b')))
-    l3_out_W = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_out_W')))
-    l3_out_U = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_out_U')))
-    l3_out_b = jnp.ndarray(
-        np.load(opj(path, 'results', f'{component}_l3_out_b')))
+    l3_update_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_update_W.npy')))
+    l3_update_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_update_U.npy')))
+    l3_update_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_update_b.npy')))
+    l3_reset_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_reset_W.npy')))
+    l3_reset_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_reset_U.npy')))
+    l3_reset_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_reset_b.npy')))
+    l3_out_W = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_out_W.npy')))
+    l3_out_U = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_out_U.npy')))
+    l3_out_b = jnp.asarray(
+        np.load(opj(path, 'results', f'{component}_l3_out_b.npy')))
     l3_params = (l3_update_W, l3_update_U, l3_update_b), (l3_reset_W, l3_reset_U, l3_reset_b), (
         l3_out_W, l3_out_U, l3_out_b)
 
@@ -439,49 +439,49 @@ def save_discriminator(sm, params):
 
 def load_discriminator(path):
 
-    l1_update_W = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_update_W')))
-    l1_update_U = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_update_U')))
-    l1_update_b = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_update_b')))
-    l1_reset_W = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_reset_W')))
-    l1_reset_U = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_reset_U')))
-    l1_reset_b = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_reset_b')))
-    l1_out_W = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_out_W')))
-    l1_out_U = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_out_U')))
-    l1_out_b = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l1_out_b')))
+    l1_update_W = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_update_W.npy')))
+    l1_update_U = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_update_U.npy')))
+    l1_update_b = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_update_b.npy')))
+    l1_reset_W = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_reset_W.npy')))
+    l1_reset_U = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_reset_U.npy')))
+    l1_reset_b = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_reset_b.npy')))
+    l1_out_W = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_out_W.npy')))
+    l1_out_U = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_out_.npyU')))
+    l1_out_b = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l1_out_.npyb')))
     l1_params = (l1_update_W, l1_update_U, l1_update_b), (l1_reset_W, l1_reset_U, l1_reset_b), (
         l1_out_W, l1_out_U, l1_out_b)
 
-    l2_update_W = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_update_W')))
-    l2_update_U = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_update_U')))
-    l2_update_b = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_update_b')))
-    l2_reset_W = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_reset_W')))
-    l2_reset_U = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_reset_U')))
-    l2_reset_b = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_reset_b')))
-    l2_out_W = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_out_W')))
-    l2_out_U = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_out_U')))
-    l2_out_b = jnp.ndarray(
-        np.load(opj(path, 'results', 'discriminator_l2_out_b')))
+    l2_update_W = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_update_W.npy')))
+    l2_update_U = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_update_U.npy')))
+    l2_update_b = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_update_b.npy')))
+    l2_reset_W = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_reset_W.npy')))
+    l2_reset_U = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_reset_U.npy')))
+    l2_reset_b = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_reset_b.npy')))
+    l2_out_W = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_out_W.npy')))
+    l2_out_U = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_out_U.npy')))
+    l2_out_b = jnp.asarray(
+        np.load(opj(path, 'results', 'discriminator_l2_out_b.npy')))
     l2_params = (l2_update_W, l2_update_U, l2_update_b), (l2_reset_W, l2_reset_U, l2_reset_b), (
         l2_out_W, l2_out_U, l2_out_b)
 
-    out_W = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_out_W')))
-    out_b = jnp.ndarray(np.load(opj(path, 'results', 'discriminator_out_b')))
+    out_W = jnp.asarray(np.load(opj(path, 'results', 'discriminator_out_W.npy')))
+    out_b = jnp.asarray(np.load(opj(path, 'results', 'discriminator_out_b.npy')))
 
     return l1_params, l2_params, (out_W, out_b)

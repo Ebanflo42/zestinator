@@ -1,13 +1,14 @@
 import json
 import string
 import random
+from matplotlib.pyplot import plot
 import numpy as np
 import numpy.random as rd
 
 import jax.numpy as jnp
 import jax.random as jrd
 
-from jax import vmap, pmap, value_and_grad
+from jax import vmap, pmap, value_and_grad, jit
 from jax.example_libraries.optimizers import rmsprop
 
 from simmanager import SimManager
@@ -16,9 +17,9 @@ from datetime import datetime
 from absl import app, flags
 from os.path import join as opj
 
-from models import encoder, decoder, save_triple_gru, load_triple_gru
 from load_data import get_song_iterator
-from utils import sim_save
+from utils import l2_norm_tree, plot_spectrogram, sim_save
+from models import encoder, decoder, save_triple_gru, load_triple_gru
 
 
 FLAGS = flags.FLAGS
@@ -35,9 +36,10 @@ flags.DEFINE_string('results_path', 'experiments',
 flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
 flags.DEFINE_integer('batch_size', 1, 'Batch size.')
-flags.DEFINE_float('track_duration', 1, 'Length of track clip in seconds.')
+flags.DEFINE_integer('duration', 1, 'Length of track clip in seconds.')
+flags.DEFINE_integer('maxlen', 25, 'Cut each song to this length.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
-flags.DEFINE_float('reg_coeff', 0.0001,
+flags.DEFINE_float('reg_coeff', 0.00001,
                    'Coefficient for L2 regularization of weights.')
 flags.DEFINE_integer(
     'save_every', 500, 'Save the model and print metrics at this many training steps.')
@@ -58,17 +60,27 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
 
     # define full forward pass from data to MSE Loss
     def forward_pass(eparams, dparams, x):
+        reg = FLAGS.reg_coeff*l2_norm_tree((eparams, dparams))
         f = lambda x1: apply_decoder(dparams, apply_encoder(eparams, x1))
-        decoding = pmap(vmap(f))(x)
+        decoding = vmap(f)(x)
         mse = jnp.mean((x - decoding)**2)
-        return mse, decoding
+        loss = mse + reg
+        return loss, (decoding, mse, reg)
 
     # derivative of forward pass with respect to parameters
     forward_backward_pass = value_and_grad(forward_pass, argnums=(0, 1), has_aux=True)
 
+    # compile training step
+    def train_step(x, eparams, dparams, ostate, ix):
+        (loss, (y, mse, reg)), grads = forward_backward_pass(eparams, dparams, x)
+        new_opt_state = opt_update(ix, grads, ostate)
+        new_eparams, new_dparams = opt_get_params(new_opt_state)
+        return y, mse, new_eparams, new_dparams, new_opt_state
+    jit_train_step = jit(train_step)
+
     # track some metrics
     mse_log = []
-    r2_log = []
+    #r2_log = []
 
     # begin training loop
     while i < FLAGS.max_steps:
@@ -76,33 +88,32 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
         # get next training sample
         x = next(song_iter)
         jx = jnp.asarray(x)
+        print(f'Got sample! {x.shape}')
 
-        # forward pass and backward pass
-        (mse, y), grads = forward_backward_pass(encoder_params, decoder_params, jx)
-
-        # optimizer step
-        opt_state = opt_update(i, grads, opt_state)
-        encoder_params, decoder_params = opt_get_params(opt_state)
+        y, mse, encoder_params, decoder_params, opt_state = jit_train_step(x, encoder_params, decoder_params, opt_state, i)
 
         if i > 0 and i % FLAGS.save_every == 0:
 
             # record metrics
             mse_log.append(mse.item())
-            r2 = 1 - jnp.sum(jnp.var(y, axis=(2, 3))/jnp.var(x, axis=(2, 3)))
-            r2_log.append(r2.item())
+            #r2 = 1 - jnp.sum(jnp.var(y, axis=(2, 3))/jnp.var(x, axis=(2, 3)))
+            #r2_log.append(r2.item())
 
             sim_save(sm, 'mse_log', mse_log)
-            sim_save(sm, 'r2_log', r2_log)
+            #sim_save(sm, 'r2_log', r2_log)
             sim_save(sm, 'iteration', i)
 
             save_triple_gru(sm, encoder_params, component='encoder')
             save_triple_gru(sm, decoder_params, component='decoder')
 
+            plot_spectrogram(sm, x[0].T, i, 'original')
+            plot_spectrogram(sm, np.array(y[0]).T, i, 'decoder')
+
             timestamp = datetime.now().strftime('%H:%M:%S')
             print(f'{timestamp} Saved {sm.sim_name} at iteration {i}.')
 
             print(
-                f'\tMSE: {mse_log[-1]}\n\tDetermination coefficient: {r2_log[-1]}\n')
+                f'\tMSE: {mse_log[-1]}\n')
 
         i += 1
 
@@ -113,7 +124,7 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
     save_triple_gru(sm, encoder_params, component='encoder')
     save_triple_gru(sm, decoder_params, component='decoder')
     sim_save(sm, 'mse_log', mse_log)
-    sim_save(sm, 'r2_log', r2_log)
+    #sim_save(sm, 'r2_log', r2_log)
     sim_save(sm, 'iteration', i)
 
     date = datetime.now().strftime('%d-%m-%Y')
