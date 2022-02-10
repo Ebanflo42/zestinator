@@ -12,10 +12,12 @@ def sim_save(sm, name, array):
 
 def unfold_convolution(array, win, hop, axis=0):
     array = jnp.moveaxis(array, axis, 0)
-    first = jnp.repeat(array[:-1], hop, axis=0)
-    second = array[-1][jnp.newaxis]
-    together = jnp.concatenate([first, second], axis=0)
-    return jnp.moveaxis(together, 0, axis)
+    return jnp.moveaxis(jnp.repeat(array, hop, axis=0), 0, axis)
+    #first = jnp.repeat(array[:-1], hop, axis=0)
+    #second = jnp.repeat(array[-1][jnp.newaxis], win, axis=0)
+    #second = array[-1][jnp.newaxis]
+    #together = jnp.concatenate([first, second], axis=0)
+    #return jnp.moveaxis(together, 0, axis)
 
 
 def l2_norm_tree(array_tree):

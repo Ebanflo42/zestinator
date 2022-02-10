@@ -34,23 +34,27 @@ def preprocess_one_example(mp3_paths, duration, maxlen):
     return spectrogram
 
 
+def load_rand_spectrogram(paths, duration):
+
+    ix = rd.randint(0, len(paths))
+    spectrogram = np.load(paths[ix])
+    if spectrogram.shape[1] > duration + 1:
+        cut = rd.randint(0, spectrogram.shape[1] - duration - 1)
+        return spectrogram[:, cut : cut + duration]
+    else:
+        return load_rand_spectrogram(paths, duration)
+
+
 def get_song_iterator(FLAGS):
 
-    mp3_paths = [opj(FLAGS.data_path, f)
-                 for f in os.listdir(FLAGS.data_path) if f.endswith('.mp3')]
-
-    n_batches = np.maximum(1, FLAGS.n_gpus)
-    minibatch_size = FLAGS.batch_size//n_batches
-    assert FLAGS.batch_size % n_batches == 0, 'Batch size should be divisible by the number of GPUs.'
+    npy_paths = [opj(FLAGS.data_path, f)
+                 for f in os.listdir(FLAGS.data_path) if f.endswith('.npy')]
 
     @background(max_prefetch=4)
     def song_iter():
         while True:
-            samples = []
-            for i in range(FLAGS.batch_size):
-                samples.append(preprocess_one_example(mp3_paths, FLAGS.duration, FLAGS.maxlen))
-            #samples = Parallel(n_jobs=2, prefer='threads')(
-            #    delayed(preprocess_one_example)(mp3_paths, FLAGS.duration, FLAGS.maxlen) for _ in range(FLAGS.batch_size))
+            samples = Parallel(n_jobs=-1, prefer='threads')(
+                delayed(load_rand_spectrogram)(npy_paths, FLAGS.duration) for _ in range(FLAGS.batch_size))
             samples = np.stack([s.T for s in samples], axis=0)
             yield samples
 

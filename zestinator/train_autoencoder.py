@@ -36,8 +36,7 @@ flags.DEFINE_string('results_path', 'experiments',
 flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
 flags.DEFINE_integer('batch_size', 1, 'Batch size.')
-flags.DEFINE_integer('duration', 1, 'Length of track clip in seconds.')
-flags.DEFINE_integer('maxlen', 25, 'Cut each song to this length.')
+flags.DEFINE_integer('duration', 300, 'Length of spectrogram.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
 flags.DEFINE_float('reg_coeff', 0.00001,
                    'Coefficient for L2 regularization of weights.')
@@ -52,7 +51,7 @@ flags.DEFINE_string(
 
 
 def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
-                   apply_decoder, decoder_params, song_iter):
+               apply_decoder, decoder_params, song_iter):
 
     # construct the optimizer
     opt_initialize, opt_update, opt_get_params = rmsprop(FLAGS.lr)
@@ -61,14 +60,15 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
     # define full forward pass from data to MSE Loss
     def forward_pass(eparams, dparams, x):
         reg = FLAGS.reg_coeff*l2_norm_tree((eparams, dparams))
-        f = lambda x1: apply_decoder(dparams, apply_encoder(eparams, x1))
+        def f(x1): return apply_decoder(dparams, apply_encoder(eparams, x1))
         decoding = vmap(f)(x)
         mse = jnp.mean((x - decoding)**2)
         loss = mse + reg
         return loss, (decoding, mse, reg)
 
     # derivative of forward pass with respect to parameters
-    forward_backward_pass = value_and_grad(forward_pass, argnums=(0, 1), has_aux=True)
+    forward_backward_pass = value_and_grad(
+        forward_pass, argnums=(0, 1), has_aux=True)
 
     # compile training step
     def train_step(x, eparams, dparams, ostate, ix):
@@ -78,9 +78,8 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
         return y, mse, new_eparams, new_dparams, new_opt_state
     jit_train_step = jit(train_step)
 
-    # track some metrics
+    # track mse loss
     mse_log = []
-    #r2_log = []
 
     # begin training loop
     while i < FLAGS.max_steps:
@@ -88,28 +87,16 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
         # get next training sample
         x = next(song_iter)
         jx = jnp.asarray(x)
-        print(f'Got sample! {x.shape}')
 
-<<<<<<< HEAD
-        y, mse, encoder_params, decoder_params, opt_state = jit_train_step(x, encoder_params, decoder_params, opt_state, i)
-=======
-        # forward pass and backward pass
-        (loss, (y, mse, reg)), grads = forward_backward_pass(encoder_params, decoder_params, jx)
-
-        # optimizer step
-        opt_state = opt_update(i, grads, opt_state)
-        encoder_params, decoder_params = opt_get_params(opt_state)
->>>>>>> 71b754fbdbf23ab942a77f80c0bce20f4b3fb152
+        y, mse, encoder_params, decoder_params, opt_state = jit_train_step(
+            jx, encoder_params, decoder_params, opt_state, i)
 
         if i > 0 and i % FLAGS.save_every == 0:
 
             # record metrics
             mse_log.append(mse.item())
-            #r2 = 1 - jnp.sum(jnp.var(y, axis=(2, 3))/jnp.var(x, axis=(2, 3)))
-            #r2_log.append(r2.item())
 
             sim_save(sm, 'mse_log', mse_log)
-            #sim_save(sm, 'r2_log', r2_log)
             sim_save(sm, 'iteration', i)
 
             save_triple_gru(sm, encoder_params, component='encoder')
@@ -133,7 +120,6 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
     save_triple_gru(sm, encoder_params, component='encoder')
     save_triple_gru(sm, decoder_params, component='decoder')
     sim_save(sm, 'mse_log', mse_log)
-    #sim_save(sm, 'r2_log', r2_log)
     sim_save(sm, 'iteration', i)
 
     date = datetime.now().strftime('%d-%m-%Y')
