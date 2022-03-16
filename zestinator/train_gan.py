@@ -7,6 +7,7 @@ import numpy.random as rd
 import jax.numpy as jnp
 import jax.random as jrd
 
+from jax.nn import logsumexp
 from jax import vmap, pmap, value_and_grad, jit
 from jax.example_libraries.optimizers import rmsprop
 
@@ -16,9 +17,9 @@ from datetime import datetime
 from absl import app, flags
 from os.path import join as opj
 
+from models import *
 from load_data import get_song_iterator
 from utils import l2_norm_tree, plot_spectrogram, sim_save
-from models import encoder, decoder, save_triple_gru, load_triple_gru
 
 
 FLAGS = flags.FLAGS
@@ -34,36 +35,90 @@ flags.DEFINE_string('results_path', 'experiments',
 # training
 flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
-flags.DEFINE_integer('batch_size', 1, 'Batch size.')
-flags.DEFINE_integer('duration', 300, 'Length of spectrogram.')
+flags.DEFINE_integer('batch_size', 8, 'Batch size.')
+flags.DEFINE_integer('duration', 2400, 'Length of spectrogram.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
 flags.DEFINE_float('reg_coeff', 0.00001,
                    'Coefficient for L2 regularization of weights.')
 flags.DEFINE_integer(
     'save_every', 500, 'Save the model and print metrics at this many training steps.')
 flags.DEFINE_string('data_path', '/home/medusa/Data/fma_small',
-                    'Path to metric fuck ton of mp3s.')
+                    'Path to metric fuck ton of numpy mel spectrograms.')
+flags.DEFINE_bool('convex_combinations', False,
+                  'Input convex combinations of the encoding into the decoder.')
 
 # model
 flags.DEFINE_string(
     'restore_from', '', 'If non-empty, restore the previous model from this directory and train it using the new flags.')
+flags.DEFINE_string('restore_from_autoencoder', '',
+                    'If non-empty, restore the encoder and decoder from the autoencoder trained at this path.')
 
 
 def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
-               apply_decoder, decoder_params, song_iter):
+               apply_decoder, decoder_params, apply_discriminator, discriminator_params, song_iter):
 
     # construct the optimizer
     opt_initialize, opt_update, opt_get_params = rmsprop(FLAGS.lr)
     opt_state = opt_initialize((encoder_params, decoder_params))
 
-    # define full forward pass from data to MSE Loss
-    def forward_pass(eparams, dparams, x):
-        reg = FLAGS.reg_coeff*l2_norm_tree((eparams, dparams))
-        def f(x1): return apply_decoder(dparams, apply_encoder(eparams, x1))
-        decoding = pmap(vmap(f))(x)
-        mse = jnp.mean((x - decoding)**2)
-        loss = mse + reg
-        return loss, (decoding, mse, reg)
+    # define full forward pass from data to cross entropy loss
+    # forward pass will be different depending on whether or not we want to do
+    # operations on the representation (convex combinations)
+    if FLAGS.convex_combinations:
+
+        def forward_pass(rng, encparams, decparams, disparams, x):
+
+            reg = FLAGS.reg_coeff * \
+                l2_norm_tree((encparams, decparams, disparams))
+
+            encoding = pmap(vmap(partial(apply_encoder, encparams)))(x)
+
+            coeffs = jrd.uniform(
+                rng, (FLAGS.n_gpus, FLAGS.batch_size//FLAGS.n_gpus, FLAGS.batch_size//FLAGS.n_gpus))
+            coeffs /= jnp.sum(coeffs, axis=-1)
+
+            def convcombine(m, enc):
+                enc = jnp.moveaxis(enc, 0, -1)
+                return jnp.moveaxis(jnp.dot(m, enc), -1, 0)
+
+            new_encoding = pmap(convcombine)(coeffs, encoding)
+            decoding = pmap(vmap(partial(apply_decoder, decparams)))(
+                new_encoding)
+            spectrograms = jnp.stack((x, decoding), axis=1)
+            truths = jnp.stack(
+                (jnp.ones_like(x)[:, :, 0, 0], jnp.zeros_like(decoding)[:, :, 0, 0]), axis=1)
+
+            logits = pmap(
+                vmap(partial(apply_discriminator, disparams)))(spectrograms)
+
+            ce = jnp.sum(truths*logsumexp(logits))
+            acc = jnp.mean(truths*jnp.heaviside(logits))
+            loss = ce + reg
+
+            return loss, (decoding, ce, acc, reg)
+
+    else:
+
+        def forward_pass(rng, encparams, decparams, disparams, x):
+
+            reg = FLAGS.reg_coeff * \
+                l2_norm_tree((encparams, decparams, disparams))
+
+            encoding = pmap(vmap(partial(apply_encoder, encparams)))(x)
+
+            decoding = pmap(vmap(partial(apply_decoder, decparams)))(encoding)
+            spectrograms = jnp.stack((x, decoding), axis=1)
+            truths = jnp.stack(
+                (jnp.ones_like(x)[:, :, 0, 0], jnp.zeros_like(decoding)[:, :, 0, 0]), axis=1)
+
+            logits = pmap(
+                vmap(partial(apply_discriminator, disparams)))(spectrograms)
+
+            ce = jnp.sum(truths*logsumexp(logits))
+            acc = jnp.mean(truths*jnp.heaviside(logits))
+            loss = ce + reg
+
+            return loss, (decoding, ce, acc, reg)
 
     # derivative of forward pass with respect to parameters
     forward_backward_pass = value_and_grad(
@@ -161,6 +216,7 @@ def main(_argv):
         # get model functions
         init_encoder, apply_encoder = encoder()
         init_decoder, apply_decoder = decoder()
+        init_discriminator, apply_discriminator = discriminator()
 
         # restore if necessary
         if FLAGS.restore_from != '':
@@ -168,16 +224,24 @@ def main(_argv):
                 FLAGS.restore_from, component='encoder')
             decoder_params = load_triple_gru(
                 FLAGS.restore_from, component='decoder')
+            discriminator_params = load_discriminator(FLAGS.restore_from)
             i = np.load(opj(FLAGS.restore_from, 'results', 'iteration.npy'))
+        elif FLAGS.restor_from_autoencoder != '':
+            encoder_params = load_triple_gru(
+                FLAGS.restore_from, component='encoder')
+            decoder_params = load_triple_gru(
+                FLAGS.restore_from, component='decoder')
+            discriminator_params = init_discriminator(rng)
         else:
             encoder_params = init_encoder(rng)
             decoder_params = init_decoder(rng)
+            discriminator_params = init_discriminator(rng)
             i = 0
 
         song_iter = get_song_iterator(FLAGS)
 
         train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
-                   apply_decoder, decoder_params, song_iter)
+                   apply_decoder, decoder_params, apply_discriminator, discriminator_params, song_iter)
 
 
 if __name__ == '__main__':
