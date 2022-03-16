@@ -374,14 +374,14 @@ def discriminator(W_init=glorot_normal(), b_init=normal()):
     l1_init, l1_apply = gru(144, W_init=W_init, b_init=b_init)
     l2_init, l2_apply = gru(72, W_init=W_init, b_init=b_init)
 
-    def init_fun(rng, in_dim):
+    def init_fun(rng):
 
-        l1_shape, l1_params = l1_init(rng, in_dim)
-        l2_shape, l2_params = l2_init(rng, l1_shape)
+        l1_params = l1_init(rng, 288)
+        l2_params = l2_init(rng, 144)
 
         k1, k2 = jrd.split(rng, num=2)
         out_W = W_init(k1, (72, 2))
-        out_b = b_init(k2, 2)
+        out_b = b_init(k2, (2,))
 
         return l1_params, l2_params, (out_W, out_b)
 

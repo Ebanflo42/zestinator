@@ -59,7 +59,7 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
 
     # construct the optimizer
     opt_initialize, opt_update, opt_get_params = rmsprop(FLAGS.lr)
-    opt_state = opt_initialize((encoder_params, decoder_params))
+    opt_state = opt_initialize((encoder_params, decoder_params, discriminator_params))
 
     # define full forward pass from data to cross entropy loss
     # forward pass will be different depending on whether or not we want to do
@@ -82,14 +82,16 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
                 return jnp.moveaxis(jnp.dot(m, enc), -1, 0)
 
             new_encoding = pmap(convcombine)(coeffs, encoding)
+            encodings = jnp.stack((encoding, new_encoding), axis=1)
             decoding = pmap(vmap(partial(apply_decoder, decparams)))(
                 new_encoding)
             spectrograms = jnp.stack((x, decoding), axis=1)
+            spect_and_encodings = jnp.stack((spectrograms, encodings), axis=2)
             truths = jnp.stack(
                 (jnp.ones_like(x)[:, :, 0, 0], jnp.zeros_like(decoding)[:, :, 0, 0]), axis=1)
 
             logits = pmap(
-                vmap(partial(apply_discriminator, disparams)))(spectrograms)
+                vmap(partial(apply_discriminator, disparams)))(spect_and_encodings)
 
             ce = jnp.sum(truths*logsumexp(logits))
             acc = jnp.mean(truths*jnp.heaviside(logits))
@@ -108,11 +110,12 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
 
             decoding = pmap(vmap(partial(apply_decoder, decparams)))(encoding)
             spectrograms = jnp.stack((x, decoding), axis=1)
+            spect_and_encodings = jnp.stack((spectrograms, encoding), axis=2)
             truths = jnp.stack(
                 (jnp.ones_like(x)[:, :, 0, 0], jnp.zeros_like(decoding)[:, :, 0, 0]), axis=1)
 
             logits = pmap(
-                vmap(partial(apply_discriminator, disparams)))(spectrograms)
+                vmap(partial(apply_discriminator, disparams)))(spect_and_encodings)
 
             ce = jnp.sum(truths*logsumexp(logits))
             acc = jnp.mean(truths*jnp.heaviside(logits))
@@ -122,18 +125,20 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
 
     # derivative of forward pass with respect to parameters
     forward_backward_pass = value_and_grad(
-        forward_pass, argnums=(0, 1), has_aux=True)
+        forward_pass, argnums=(0, 1, 2), has_aux=True)
 
     # compile training step
-    def train_step(x, eparams, dparams, ostate, ix):
-        (loss, (y, mse, reg)), grads = forward_backward_pass(eparams, dparams, x)
+    def train_step(x, encparams, decparams, disparams, ostate, ix):
+        (loss, (y, ce, acc, reg)), grads = forward_backward_pass(
+            encparams, decparams, disparams, x)
         new_opt_state = opt_update(ix, grads, ostate)
-        new_eparams, new_dparams = opt_get_params(new_opt_state)
-        return y, mse, new_eparams, new_dparams, new_opt_state
+        new_encparams, new_decparams, new_disparams = opt_get_params(new_opt_state)
+        return y, ce, acc, reg, new_encparams, new_decparams, new_disparams, new_opt_state
     jit_train_step = jit(train_step)
 
-    # track mse loss
-    mse_log = []
+    # track cross entropy loss and accuracy
+    ce_log = []
+    acc_log = []
 
     # begin training loop
     while i < FLAGS.max_steps:
@@ -142,19 +147,22 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
         x = next(song_iter)
         jx = jnp.asarray(x)
 
-        y, mse, encoder_params, decoder_params, opt_state = jit_train_step(
-            jx, encoder_params, decoder_params, opt_state, i)
+        y, ce, acc, reg, encoder_params, decoder_params, discriminator_params, opt_state = jit_train_step(
+            jx, encoder_params, decoder_params, discriminator_params, opt_state, i)
 
         if i > 0 and i % FLAGS.save_every == 0:
 
             # record metrics
-            mse_log.append(mse.item())
+            ce_log.append(ce.item())
+            acc_log.append(acc.item())
 
-            sim_save(sm, 'mse_log', mse_log)
+            sim_save(sm, 'ce_log', ce_log)
+            sim_save(sm, 'acc_log', acc_log)
             sim_save(sm, 'iteration', i)
 
             save_triple_gru(sm, encoder_params, component='encoder')
             save_triple_gru(sm, decoder_params, component='decoder')
+            save_discriminator(sm, discriminator_params)
 
             plot_spectrogram(sm, x[0].T, i, 'original')
             plot_spectrogram(sm, np.array(y[0]).T, i, 'decoder')
@@ -163,7 +171,7 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
             print(f'{timestamp} Saved {sm.sim_name} at iteration {i}.')
 
             print(
-                f'\tMSE: {mse_log[-1]}\n')
+                f'\tDiscriminator accuracy: {acc_log[-1]}\n')
 
         i += 1
 
@@ -173,7 +181,9 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
     print(f'Final save of {sm.sim_name}.')
     save_triple_gru(sm, encoder_params, component='encoder')
     save_triple_gru(sm, decoder_params, component='decoder')
-    sim_save(sm, 'mse_log', mse_log)
+    save_discriminator(sm, discriminator_params)
+    sim_save(sm, 'mse_log', ce_log)
+    sim_save(sm, 'mse_log', acc_log)
     sim_save(sm, 'iteration', i)
 
     date = datetime.now().strftime('%d-%m-%Y')
@@ -187,7 +197,7 @@ def main(_argv):
     if FLAGS.model_name == '':
         identifier = ''.join(random.choice(
             string.ascii_lowercase + string.digits) for _ in range(4))
-        sim_name = 'autoencoder_{}'.format(identifier)
+        sim_name = 'gan_{}'.format(identifier)
     else:
         sim_name = FLAGS.model_name
     date = datetime.now().strftime('%d-%m-%Y')
@@ -226,12 +236,13 @@ def main(_argv):
                 FLAGS.restore_from, component='decoder')
             discriminator_params = load_discriminator(FLAGS.restore_from)
             i = np.load(opj(FLAGS.restore_from, 'results', 'iteration.npy'))
-        elif FLAGS.restor_from_autoencoder != '':
+        elif FLAGS.restore_from_autoencoder != '':
             encoder_params = load_triple_gru(
-                FLAGS.restore_from, component='encoder')
+                FLAGS.restore_from_autoencoder, component='encoder')
             decoder_params = load_triple_gru(
-                FLAGS.restore_from, component='decoder')
+                FLAGS.restore_from_autoencoder, component='decoder')
             discriminator_params = init_discriminator(rng)
+            i = 0
         else:
             encoder_params = init_encoder(rng)
             decoder_params = init_decoder(rng)
