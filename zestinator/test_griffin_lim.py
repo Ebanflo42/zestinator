@@ -87,10 +87,12 @@ if __name__ == '__main__':
     sr = 20000
     songdir = '/home/medusa/Music'
     songpaths = [f for f in os.listdir(songdir) if f.endswith('.mp3')]
-    waveforms = jnp.zeros((len(songpaths), 30*sr), dtype=jnp.float32)
+    waveforms = []
     for i, path in enumerate(songpaths):
-        waveforms[i] = load(opj(songdir, path), sr=sr)[:30*sr]
-
+        if i < 4:
+            waveforms.append(jnp.array(load(opj(songdir, path), sr=sr)[0][:30*sr]))
+    waveforms = jnp.stack(waveforms, axis=0)
+    print('Waveforms loaded')
     spectrograms = vmap(partial(melspectrogram, n_mels=128, n_fft=2048, hop_length=512))(waveforms)
 
     #fig = plt.figure()
@@ -108,5 +110,5 @@ if __name__ == '__main__':
     #reconstructed = ttt_to_audio(spectrogram, basis, hop_length=400, n_iter=16)
     reconstructed = mel_to_audio(np.array(spectrograms[0]), hop_length=512, n_iter=32, n_fft=2048)
     print('Audio reconstructed.')
-    write('that_kid_cobra_reconstructed2.wav', reconstructed, sr)
+    write('reconstruction.wav', reconstructed, sr)
     print('Finished.')

@@ -7,11 +7,7 @@ def spectrogram(
     S=None,
     n_fft=2048,
     hop_length=512,
-    power=1,
-    win_length=None,
-    window="hann",
-    center=True,
-    pad_mode="reflect",
+    power=1
 ):
     """Helper function to retrieve a magnitude spectrogram.
 
@@ -82,13 +78,9 @@ def spectrogram(
             jnp.abs(
                 stft(
                     y,
-                    n_fft=n_fft,
-                    hop_length=hop_length,
-                    win_length=win_length,
-                    center=center,
-                    window=window,
-                    pad_mode=pad_mode,
-                )
+                    nperseg=n_fft,
+                    noverlap=n_fft-hop_length
+                )[-1]
             )
             ** power
         )
@@ -177,7 +169,7 @@ def hz_to_mel(frequencies, htk=False):
     mel_to_hz
     """
 
-    frequencies = jnp.asanyarray(frequencies)
+    frequencies = jnp.asarray(frequencies)
 
     if htk:
         return 2595.0 * jnp.log10(1.0 + frequencies / 700.0)
