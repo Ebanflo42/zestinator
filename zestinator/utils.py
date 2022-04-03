@@ -32,7 +32,8 @@ def plot_spectrogram(sm, spectrogram, i, component):
     ax = fig.add_subplot()
 
     m, v = np.mean(spectrogram), 2*np.std(spectrogram)
-    ax.pcolormesh(spectrogram, vmin=-1, vmax=1, cmap='seismic')
+
+    ax.pcolormesh(spectrogram, vmin=0, vmax=10, cmap='seismic')
 
     ax.set_title(f'{component} spectrogram')
     ax.set_xlabel('Time')

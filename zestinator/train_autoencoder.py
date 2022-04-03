@@ -34,7 +34,7 @@ flags.DEFINE_string('results_path', 'experiments',
 # training
 flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
-flags.DEFINE_integer('batch_size', 1, 'Batch size.')
+flags.DEFINE_integer('batch_size', 53, 'Batch size.')
 flags.DEFINE_integer('duration', 64, 'Length of spectrogram.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
 flags.DEFINE_float('reg_coeff', 0.0001,
@@ -101,8 +101,8 @@ def train_loop(sm, FLAGS, i, apply_encoder, encoder_params,
             save_triple_gru(sm, encoder_params, component='encoder')
             save_triple_gru(sm, decoder_params, component='decoder')
 
-            plot_spectrogram(sm, x[0].T, i, 'original')
-            plot_spectrogram(sm, np.array(y[0]).T, i, 'decoder')
+            plot_spectrogram(sm, x[0, 0], i, 'original')
+            plot_spectrogram(sm, np.array(y[0, 0]), i, 'decoder')
 
             timestamp = datetime.now().strftime('%H:%M:%S')
             print(f'{timestamp} Saved {sm.sim_name} at iteration {i}.')

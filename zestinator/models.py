@@ -61,9 +61,11 @@ def gru(out_dim: int, W_init=glorot_normal(), b_init=normal()):
             return output, output
 
         # run GRU over input
-        _, hiddens = lax.scan(dynamic_step, inputs)
+        inputs = jnp.moveaxis(inputs, 0, 1)
+        _, hiddens = lax.scan(dynamic_step, jnp.zeros(
+            out_dim, dtype=jnp.float32), inputs)
 
-        return hiddens
+        return jnp.moveaxis(hiddens, 0, 1)
 
     return init_fun, apply_fun
 
@@ -239,7 +241,7 @@ def decompressing_gru(out_dim: int, rate: int, W_init=glorot_normal(), b_init=no
             out_W, out_U, out_b) = params
 
         # unroll compression
-        unrolled_inputs = jnp.repeat(inputs, rate, 1)
+        unrolled_inputs = jnp.moveaxis(jnp.repeat(inputs, rate, 1), 0, 1)
 
         # define dynamic GRU step
         def dynamic_step(hidden, inp):
@@ -260,7 +262,7 @@ def decompressing_gru(out_dim: int, rate: int, W_init=glorot_normal(), b_init=no
         _, hiddens = lax.scan(dynamic_step, jnp.zeros(
             out_dim, dtype=jnp.float32), unrolled_inputs)
 
-        return hiddens
+        return jnp.moveaxis(hiddens, 0, 1)
 
     return init_fun, apply_fun
 
@@ -301,8 +303,8 @@ def compressing_gru(out_dim: int, rate: int, W_init=glorot_normal(), b_init=norm
         (update_W, update_U, update_b), (reset_W, reset_U, reset_b), (
             out_W, out_U, out_b) = params
 
-        # unroll compression
-        rolled_inputs = inputs[:, jnp.arrange(0, inputs.shape[1], rate)]
+        # compress
+        rolled_inputs = jnp.moveaxis(inputs[:, jnp.arange(0, inputs.shape[1], rate)], 0, 1)
 
         # define dynamic GRU step
         def dynamic_step(hidden, inp):
@@ -323,7 +325,7 @@ def compressing_gru(out_dim: int, rate: int, W_init=glorot_normal(), b_init=norm
         _, hiddens = lax.scan(dynamic_step, jnp.zeros(
             out_dim, dtype=jnp.float32), rolled_inputs)
 
-        return hiddens
+        return jnp.moveaxis(hiddens, 0, 1)
 
     return init_fun, apply_fun
 
@@ -333,9 +335,9 @@ def encoder(W_init=glorot_normal(), b_init=normal()):
     l1_init, l1_apply = gru(
         96, W_init=W_init, b_init=b_init)
     l2_init, l2_apply = compressing_gru(
-        64, 8, W_init=W_init, b_init=b_init)
+        64, 4, W_init=W_init, b_init=b_init)
     l3_init, l3_apply = compressing_gru(
-        32, 8, W_init=W_init, b_init=b_init)
+        32, 4, W_init=W_init, b_init=b_init)
 
     def init_fun(rng):
 
@@ -360,11 +362,11 @@ def encoder(W_init=glorot_normal(), b_init=normal()):
 def decoder(W_init=glorot_normal(), b_init=normal()):
 
     l1_init, l1_apply = decompressing_gru(
-        64, 6, 5, W_init=W_init, b_init=b_init)
+        64, 4, W_init=W_init, b_init=b_init)
     l2_init, l2_apply = decompressing_gru(
-        96, 6, 2, W_init=W_init, b_init=b_init)
-    l3_init, l3_apply = decompressing_gru(
-        128, 6, 2, W_init=W_init, b_init=b_init)
+        96, 4, W_init=W_init, b_init=b_init)
+    l3_init, l3_apply = gru(
+        128, W_init=W_init, b_init=b_init)
 
     def init_fun(rng):
 
@@ -516,7 +518,7 @@ def discriminator(W_init=glorot_normal(), b_init=normal()):
         l1_params, l2_params, (out_W, out_b) = params
 
         # repeat representation to match length of spectrogram
-        repeated_representation = jnp.repeat(representation, 8*8, 1)
+        repeated_representation = jnp.repeat(representation, 4*4, 1)
 
         # discriminator receives spectrogram and time-dependent representation as input
         inputs = jnp.stack([repeated_representation, spectrogram], axis=1)
