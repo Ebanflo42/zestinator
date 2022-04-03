@@ -35,14 +35,14 @@ flags.DEFINE_string('results_path', 'experiments',
 flags.DEFINE_integer('max_steps', 1000,
                      'How many training batches to show the network.')
 flags.DEFINE_integer('batch_size', 1, 'Batch size.')
-flags.DEFINE_integer('duration', 300, 'Length of spectrogram.')
+flags.DEFINE_integer('duration', 64, 'Length of spectrogram.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
-flags.DEFINE_float('reg_coeff', 0.00001,
+flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')
 flags.DEFINE_integer(
-    'save_every', 500, 'Save the model and print metrics at this many training steps.')
-flags.DEFINE_string('data_path', '/home/medusa/Data/fma_small',
-                    'Path to metric fuck ton of mp3s.')
+    'save_every', 100, 'Save the model and print metrics at this many training steps.')
+flags.DEFINE_string('data_path', '/home/medusa/Music/spectrograms',
+                    'Path to metric fuck ton of numpy mel spectrograms.')
 
 # model
 flags.DEFINE_string(
